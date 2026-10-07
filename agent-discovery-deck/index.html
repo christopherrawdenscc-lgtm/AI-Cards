@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agent Discovery Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a workshop table — sticky step rail on top, one working surface per step, card detail opens as a side sheet. */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --surface-2:#f6f8fb; --line:#d8dee8; --fg:#18202c; --muted:#5a6678;
+  --accent:#1f5fbf; --accent-ink:#ffffff; --accent-soft:#e3ecfa;
+  --good:#1d7a4f; --good-soft:#e1f3ea; --warn:#a1620b; --warn-soft:#fbf0dc; --bad:#9b3434; --bad-soft:#f8e5e5;
+  --shadow:0 1px 2px rgba(20,30,50,.06),0 4px 14px rgba(20,30,50,.06);
+  --c-agentic:#4f6f86; --c-info:#2f6bab; --c-data:#2c7a82; --c-task:#5d6470; --c-decision:#8a6a3c; --c-visual:#6a58a8;
+  --c-text:#a35a3a; --c-comm:#a83f4a; --c-speech:#8e4a91; --c-env:#3d7f4c; --c-content:#7d63b8; --c-process:#3f5f95; --c-nav:#9a7230;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11151c; --surface:#1a2029; --surface-2:#151a22; --line:#2c3542; --fg:#e7ecf3; --muted:#9aa6b8;
+  --accent:#6ea2ef; --accent-ink:#0d1420; --accent-soft:#1d2c44;
+  --good:#5cc495; --good-soft:#163428; --warn:#e3a94f; --warn-soft:#3a2c14; --bad:#ec8a8a; --bad-soft:#3d1d1f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25);
+  --c-agentic:#86a7bf; --c-info:#6ea2e0; --c-data:#5fb3ba; --c-task:#9aa3b0; --c-decision:#c9a46e; --c-visual:#a796e0;
+  --c-text:#e09272; --c-comm:#e57d88; --c-speech:#c98bcc; --c-env:#79bd88; --c-content:#b59ee8; --c-process:#86a3d6; --c-nav:#d8ad62;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151c; --surface:#1a2029; --surface-2:#151a22; --line:#2c3542; --fg:#e7ecf3; --muted:#9aa6b8;
+  --accent:#6ea2ef; --accent-ink:#0d1420; --accent-soft:#1d2c44;
+  --good:#5cc495; --good-soft:#163428; --warn:#e3a94f; --warn-soft:#3a2c14; --bad:#ec8a8a; --bad-soft:#3d1d1f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25);
+  --c-agentic:#86a7bf; --c-info:#6ea2e0; --c-data:#5fb3ba; --c-task:#9aa3b0; --c-decision:#c9a46e; --c-visual:#a796e0;
+  --c-text:#e09272; --c-comm:#e57d88; --c-speech:#c98bcc; --c-env:#79bd88; --c-content:#b59ee8; --c-process:#86a3d6; --c-nav:#d8ad62;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg)}
+body{font:15px/1.5 var(--f-body);padding-inline:16px;padding-block:0 48px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;font-weight:700;letter-spacing:-.01em}
+h1{font-size:1.55rem} h2{font-size:1.35rem} h3{font-size:1.05rem}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.label{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* header + steps */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);margin-inline:-16px;padding:12px 16px 0;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand-l{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-width:0}
+.brand .cust{color:var(--muted);font-size:.92rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
+.tally{display:flex;gap:6px;flex-wrap:wrap}
+.tally span{font-family:var(--f-mono);font-size:.78rem;padding:3px 8px;border-radius:99px;border:1px solid var(--line);background:var(--surface)}
+nav.steps{display:flex;gap:2px;overflow-x:auto;margin-top:10px;scrollbar-width:none}
+nav.steps::-webkit-scrollbar{display:none}
+nav.steps button{flex:0 0 auto;border:0;background:none;padding:9px 12px 11px;border-bottom:3px solid transparent;cursor:pointer;color:var(--muted);font-weight:500;display:flex;gap:7px;align-items:center}
+nav.steps button .n{font-family:var(--f-mono);font-size:.75rem;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line)}
+nav.steps button[aria-current="step"]{color:var(--fg);border-bottom-color:var(--accent)}
+nav.steps button[aria-current="step"] .n{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+main{padding-top:22px}
+section.view{display:grid;gap:18px}
+.intro{display:grid;gap:6px;max-width:72ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.banner{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);color:var(--fg);padding:10px 14px;border-radius:var(--r)}
+.banner b{color:var(--warn)}
+
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:5px 10px;font-size:.85rem}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* forms */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.field{display:grid;gap:5px;min-width:0}
+.field label,.field .lab{font-weight:600;font-size:.88rem}
+.field .hint{font-size:.8rem;color:var(--muted)}
+input[type=text],input[type=date],select,textarea{width:100%;border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:8px 10px}
+textarea{min-height:76px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 11px;cursor:pointer;font-size:.86rem}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg);font-weight:600}
+.scale{display:flex;gap:4px}
+.scale button{width:34px;height:32px;border:1px solid var(--line);background:var(--surface);border-radius:6px;cursor:pointer;font-family:var(--f-mono)}
+.scale button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* discover */
+.qgrid{display:grid;gap:14px}
+.q h3{margin-bottom:4px}
+.q p{margin-bottom:10px}
+.recs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.rec{display:grid;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;min-width:0}
+.rec .why{font-size:.8rem;color:var(--muted)}
+.score{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+
+/* deck */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.toolbar input[type=text]{max-width:280px}
+.cats{display:flex;gap:6px;flex-wrap:wrap}
+.cat-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--cc,var(--muted));margin-right:6px;vertical-align:1px}
+.deck{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.card{position:relative;display:grid;grid-template-rows:auto 1fr auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;min-width:0;box-shadow:var(--shadow)}
+.card .tab{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:color-mix(in srgb,var(--cc) 16%,var(--surface));border-bottom:1px solid color-mix(in srgb,var(--cc) 30%,var(--line));font-size:.76rem;font-weight:600;color:var(--fg)}
+.card .tab .no{font-family:var(--f-mono);color:var(--muted);font-weight:400}
+.card .body{padding:12px;display:grid;gap:6px;align-content:start;cursor:pointer;text-align:left;border:0;background:none}
+.card .body h3{font-size:1.06rem}
+.card .body p{font-size:.86rem;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card .acts{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line)}
+.card .acts button{border:0;background:none;padding:8px 4px;cursor:pointer;font-size:.8rem;font-weight:600;color:var(--muted)}
+.card .acts button+button{border-left:1px solid var(--line)}
+.card .acts button.on.p{background:var(--good-soft);color:var(--good)}
+.card .acts button.on.m{background:var(--warn-soft);color:var(--warn)}
+.card .acts button.on.x{background:var(--bad-soft);color:var(--bad)}
+.card.st-p{border-color:var(--good)} .card.st-m{border-color:var(--warn)} .card.st-x{opacity:.62}
+.card .flag{font-size:.7rem;font-weight:600;color:var(--accent);letter-spacing:.04em;text-transform:uppercase}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,14,20,.5);z-index:40}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(980px,100%);background:var(--bg);z-index:41;overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px calc(env(safe-area-inset-bottom,0px) + 24px);box-shadow:-10px 0 30px rgba(0,0,0,.25)}
+.sheet-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.sheet-grid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:20px;align-items:start}
+.sheet-grid img{width:100%;border-radius:10px;box-shadow:var(--shadow);display:block;background:var(--surface-2);aspect-ratio:552/768}
+.ex{display:grid;gap:8px}
+.ex div{font-size:.9rem}
+.ex b{font-weight:600}
+.prods{display:flex;flex-wrap:wrap;gap:5px}
+.prod{font-size:.75rem;border:1px solid var(--line);border-radius:6px;padding:2px 7px;background:var(--surface)}
+.status-row{display:flex;gap:6px;flex-wrap:wrap}
+.st{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:.88rem}
+.st.p[aria-pressed="true"]{background:var(--good-soft);border-color:var(--good);color:var(--good)}
+.st.m[aria-pressed="true"]{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.st.x[aria-pressed="true"]{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.suggest{background:var(--accent-soft);border-radius:8px;padding:10px 12px;font-size:.88rem}
+@media (max-width:760px){.sheet-grid{grid-template-columns:1fr}.sheet-grid img{max-width:280px}}
+
+/* requirements list */
+.reqlist{display:grid;gap:10px}
+.req{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.req .meta{display:flex;gap:8px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.pill{font-size:.72rem;font-weight:600;border-radius:99px;padding:2px 8px;border:1px solid var(--line)}
+.pill.p{background:var(--good-soft);color:var(--good);border-color:transparent}
+.pill.m{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.ok{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.pill.todo{color:var(--muted)}
+
+/* matrix */
+.mx-wrap{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.mx-wrap{grid-template-columns:1fr}}
+svg.mx{width:100%;height:auto;display:block}
+svg.mx text{fill:var(--muted);font-family:var(--f-body)}
+svg.mx .ql{font-size:12px;font-weight:600;fill:var(--fg);opacity:.75}
+svg.mx .dot-l{font-size:11px;fill:var(--fg);font-family:var(--f-mono)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:.86rem}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--surface-2)}
+td.num{font-family:var(--f-mono);text-align:center}
+.quad{font-size:.75rem;font-weight:600;white-space:nowrap}
+.q-quick{color:var(--good)} .q-strat{color:var(--accent)} .q-fill{color:var(--warn)} .q-later{color:var(--muted)}
+.copybox{width:100%;min-height:160px;font-family:var(--f-mono);font-size:.78rem}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:8px;z-index:60;font-size:.88rem}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}}
+</style>
+
+<style>img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="brand-l"><h1>Agent Discovery Deck</h1><span class="cust" id="hdrCust"></span></div>
+      <div class="tally" id="tally"></div>
+    </div>
+    <nav class="steps" id="steps" aria-label="Workshop steps"></nav>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+<div id="sheetHost"></div>
+<div id="toastHost"></div>
+
+<script>
+const CARDS = [{"id":1,"category":"Agentic","title":"Process optimization","description":"Agentic AI enhances operational efficiency by autonomously coordinating, routing, and scheduling tasks across complex workflows.","examples":[{"sector":"Manufacturing","text":"A Predictive Maintenance Agent continuously monitors equipment health and schedules repairs before failures occur."},{"sector":"Retail","text":"An Inventory Optimization Agent forecasts demand and dynamically adjusts stock levels across multiple locations."}],"products":["Azure AI Foundry","Agent Service","Microsoft 365 Copilot"]},{"id":2,"category":"Agentic","title":"Routing and logistics","description":"AI Agents make real-time decisions to optimize the movement of goods, people, and resources, improving delivery speed and service reliability.","examples":[{"sector":"Manufacturing","text":"A Supply Chain Routing Agent reroutes shipments based on delays, weather, or demand fluctuations."},{"sector":"Transportation","text":"A Fleet Dispatch Agent assigns vehicles and routes according to delivery urgency and traffic conditions."}],"products":["Azure AI Foundry","Agent Service","Microsoft 365 Copilot"]},{"id":3,"category":"Agentic","title":"Productivity","description":"AI Agents streamline administrative and knowledge work by handling repetitive tasks, freeing up time for higher-value activities.","examples":[{"sector":"Enterprise Operations","text":"A Meeting Summarization Agent attends virtual meetings, extracts action items, and sends follow-ups."},{"sector":"Legal Operations","text":"A Contract Review Agent analyzes legal documents, flags risks, and suggests revisions."}],"products":["Azure AI Foundry","Agent Service","Microsoft 365 Copilot"]},{"id":4,"category":"Agentic","title":"Retail and marketing","description":"Agentic AI supports customer engagement and marketing execution by automating personalization, research, and campaign insights.","examples":[{"sector":"Retail","text":"A Personal Shopping Agent curates product recommendations and completes purchases on behalf of users."},{"sector":"Marketing","text":"A Research Agent gathers and summarizes competitor intelligence and market trends for campaign planning."}],"products":["Azure AI Foundry","Agent Service","Microsoft 365 Copilot","Dynamics 365"]},{"id":5,"category":"Agentic","title":"Software development","description":"AI Agents assist developers by automating code generation, reviews, and project setup, accelerating delivery and improving quality.","examples":[{"sector":"DevOps","text":"An Application Builder Agent selects frameworks, generates code, and integrates with GitHub for Cl/CD automation."},{"sector":"Engineering","text":"A Code Review Agent scans pull requests for bugs, security issues, and best practices, offering actionable suggestions."}],"products":["Azure AI Foundry","Agent Service","Microsoft 365 Copilot","GitHub"]},{"id":6,"category":"Agentic","title":"Security operations","description":"Agentic AI augments security teams by automating threat detection, intelligence curation, and vulnerability response at scale.","examples":[{"sector":"Threat Intelligence","text":"An Agent curates real-time, context-specific threat briefings tailored to an organization's risk profile."},{"sector":"Vulnerability Management","text":"An Agent identifies, prioritizes, and guides remediation of vulnerabilities across systems."}],"products":["Azure AI Foundry","Agent Service","Microsoft 365 Copilot","Microsoft Security Copilot"]},{"id":7,"category":"Agentic","title":"Decision making","description":"AI Agents enable autonomous decision-making by interpreting context and executing actions based on natural language instructions.","examples":[{"sector":"Multi-Agent Systems","text":"An Orchestrator Agent assigns tasks to other agents based on their capabilities and the desired outcome."},{"sector":"Customer Support","text":"A Service Agent interprets customer messages and selects the best response or resolution path."}],"products":["Azure AI Foundry","Agent Service","Microsoft 365 Copilot"]},{"id":8,"category":"Agentic","title":"Customer service","description":"AI Agents streamlining customer interactions, collecting information and dealing with requests to support human workers.","examples":[{"sector":"Retail","text":"Agents handle inquiries, track shipments, and initiate returns, reducing wait times and improving customer satisfaction."},{"sector":"Telecommunications","text":"AI monitors service outages, proactively contacts affected customers, and schedules technician visits without human intervention."}],"products":["Azure AI Foundry","Agent Service","Microsoft 365 Copilot"]},{"id":9,"category":"Information Management","title":"Extract information","description":"Use AI for efficient and speedy extraction of vital data from large databases or unsorted data stores, enhancing research and productivity.","examples":[{"sector":"Legal and Tax","text":"Use AI to quickly locate pertinent cases, laws, and regulations from extensive legal databases."},{"sector":"Scientific Research","text":"Implement AI to swiftly sift through scholarly articles and extract key findings."}],"products":["Azure AI Foundry","Microsoft 365 Copilot","Bing Search API","Azure AI Search","Azure Machine Learning"]},{"id":10,"category":"Information Management","title":"Retrieve information","description":"Enhance productivity by using AI to find relevant information.","examples":[{"sector":"E-Commerce","text":"Analyze user behavior and preferences to deliver precise personalized product recommendations."},{"sector":"Learning","text":"Assist students by finding specific information to help learn and study a concept."}],"products":["Microsoft 365 Copilot","Bing Search API","Azure AI Search","Azure Machine Learning","SharePoint Premium"]},{"id":11,"category":"Information Management","title":"Organize data","description":"Use AI to efficiently categorize and organize data, enhancing analysis and decision-making.","examples":[{"sector":"Healthcare","text":"Categorize patient data by symptoms, diagnosis, and treatment to aid in research and patient care."},{"sector":"Marketing","text":"Identify and group customers to target marketing efforts effectively based on their interests, shopping habits, or annual spending."}],"products":["Azure AI Search","Azure Machine Learning","SharePoint Premium","Azure AI Document Intelligence"]},{"id":12,"category":"Information Management","title":"Discover patterns","description":"Harness AI to identify patterns and relationships in data, leading to insightful analysis and decision-making.","examples":[{"sector":"Marketing","text":"Employ AI to group customers based on purchasing behavior, demographics, and preferences for targeted marketing."},{"sector":"Social Media","text":"Use AI to identify and group trending sentiments or topics, aiding sentiment analysis and trend prediction."}],"products":["Azure AI Foundry","Azure Machine Learning"]},{"id":13,"category":"Information Management","title":"Structure raw data","description":"Leverage AI to transform raw, unstructured data into a structured format for easier analysis and insights extraction.","examples":[{"sector":"Text Mining","text":"Convert unstructured text from social media, emails, or reviews into structured data for sentiment analysis or trend identification."},{"sector":"Healthcare","text":"Organize disparate, unstructured patient data into structured records, enhancing healthcare delivery and research."}],"products":["Azure AI Foundry","Azure Machine Learning","Azure AI Document Intelligence"]},{"id":14,"category":"Data and predictive analytics","title":"Gain market insights","description":"Utilize AI to understand market trends, forecast, and assess competitor behavior.","examples":[{"sector":"Retail","text":"Analyze data points to understand market trends and inform strategic decisions."},{"sector":"Marketing","text":"Track competitor's digital footprint to comprehend their strategies and performance."}],"products":["Azure AI Foundry","Bing Search API","Azure Machine Learning","Power BI","Azure Maps","Azure AI Language"]},{"id":15,"category":"Data and predictive analytics","title":"Visualize data","description":"Leverage AI to automatically visualize and interpret data relationships.","examples":[{"sector":"Sales","text":"Use AI to generate visuals and reports, identifying customer trends and buying patterns."},{"sector":"Business Analysis","text":"Employ AI for swift performance reporting and visual data arrangement."}],"products":["Azure AI Foundry","Microsoft 365 Copilot for Sales","Azure Machine Learning","Microsoft Fabric"]},{"id":16,"category":"Data and predictive analytics","title":"Analyze sentiments","description":"Leverage AI to detect and analyze sentiment in text and images.","examples":[{"sector":"Customer Service","text":"Use AI to gauge customer sentiment from feedback or product reviews."},{"sector":"Marketing","text":"Analyze social media comments with AI to assess public sentiment about a brand or event."}],"products":["Azure AI Foundry","Azure Machine Learning","Azure AI Language","Azure AI Custom Vision","Power Platform : AI Builder"]},{"id":17,"category":"Data and predictive analytics","title":"Identify data patterns","description":"Use AI to detect patterns, connections, and associations in your data.","examples":[{"sector":"Transportation","text":"Analyze traffic data with AI to identify congestion times and high-accident zones."},{"sector":"Healthcare","text":"Use AI to analyze large amounts of healthcare data to detect early signs of diseases like cancer or Alzheimer's."}],"products":["Azure AI Search","Azure Machine Learning","Copilot for Power BI","Microsoft Fabric"]},{"id":18,"category":"Data and predictive analytics","title":"Detect anomalies","description":"Use AI to identify unusual patterns in data streams or image data.","examples":[{"sector":"Banking","text":"Detect suspicious credit card activities that may indicate fraud."},{"sector":"Cybersecurity","text":"Spot unusual traffic patterns in login data to detect potential cyber attacks."}],"products":["Azure Machine Learning","Azure AI Custom Vision","Azure Sentinel"]},{"id":19,"category":"Data and predictive analytics","title":"Understand customers","description":"Gain insights into customer behavior, predict their needs, and tailor solutions effectively.","examples":[{"sector":"Retail","text":"Suggest products based on a customer's past purchases."},{"sector":"Marketing","text":"Personalize campaigns based on customers’ interactions with the brand."}],"products":["Azure AI Foundry","Azure Machine Learning","Microsoft Fabric","Dynamics 365 Customer Insights"]},{"id":20,"category":"Data and predictive analytics","title":"Predict risk or fraud","description":"Use AI to detect suspicious activities and predict potential threats in real-time.","examples":[{"sector":"Banking","text":"Identify suspicious patterns in transactions to detect potential fraud."},{"sector":"Cybersecurity","text":"Predict threats in real-time to prevent data breaches."}],"products":["Azure AI Foundry","Azure Machine Learning","Microsoft Fabric","Azure Sentinel","Dynamics 365 Fraud Protection"]},{"id":21,"category":"Data and predictive analytics","title":"Forecast events & outcomes","description":"Use AI to predict future scenarios and outcomes based on historical data.","examples":[{"sector":"Project Management","text":"Estimate project completion time based on past performance data."},{"sector":"Finance","text":"Predict market trends to shape investment strategies."}],"products":["Azure Machine Learning","Microsoft Fabric"]},{"id":22,"category":"Data and predictive analytics","title":"Predict customer churn","description":"Use AI to anticipate customer churn and respond proactively to retain them.","examples":[{"sector":"Subscription Services","text":"Predict potential cancellations based on customer usage patterns."},{"sector":"Marketing","text":"Offer personalized incentives to customers at risk of churning."}],"products":["Azure Machine Learning","Microsoft Fabric","Dynamics 365 Customer Insights"]},{"id":23,"category":"Data and predictive analytics","title":"Predict & plan demand","description":"Use AI to analyze sales data, identify patterns, and forecast demand accurately.","examples":[{"sector":"Sales","text":"Analyze historical sales data to identify patterns and seasonality."},{"sector":"Inventory Management","text":"Plan inventory based on forecasted demand to avoid stockouts and overstock."}],"products":["Azure AI Foundry","Azure Machine Learning","Microsoft Fabric","Dynamics 365 Supply Chain Management"]},{"id":24,"category":"Data and predictive analytics","title":"Simplify data analysis","description":"Use AI to create complex data queries and dashboards through natural language, making insights more accessible.","examples":[{"sector":"Sales","text":"Generate expressions for trend analysis by describing the analytical goal."},{"sector":"Customer Service","text":"Build a dashboard summarizing customer feedback using natural language queries."}],"products":["Azure AI Foundry","Copilot for Power BI","Azure AI Language"]},{"id":25,"category":"Task automation","title":"Help with admin tasks","description":"Use AI to automate repetitive and time-consuming office tasks.","examples":[{"sector":"Finance","text":"Automate data entry and report generation for increased efficiency."},{"sector":"HR","text":"Onboarding Assistant Agents guide new hires through setup, training, and policy acknowledgments, adapting the flow based on role and location."}],"products":["Microsoft 365 Copilot","Power Platform : AI Builder","Power Platform : Power Automate"]},{"id":26,"category":"Task automation","title":"Simplify household tasks","description":"Use AI to automate and simplify everyday household tasks.","examples":[{"sector":"Smart Home","text":"Control lights, thermostats, and locks through voice commands."},{"sector":"Energy Management","text":"Monitor and regulate appliance energy usage for optimized consumption."}],"products":["Azure AI Foundry","Power Platform : AI Builder","Microsoft 365 Agents SDK","Microsoft Copilot Studio"]},{"id":27,"category":"Task automation","title":"Help with personal tasks","description":"Utilize AI to assist with daily personal tasks and health management.","examples":[{"sector":"Health & Fitness","text":"Get personalized fitness and health recommendations based on lifestyle and goals."},{"sector":"Personal Reminders","text":"Set reminders for appointments, medication intake, or bill payments."}],"products":["Azure AI Foundry","Microsoft 365 Copilot"]},{"id":28,"category":"Task automation","title":"Workflow creation","description":"Use AI to interpret natural language into functional workflows, enhancing efficiency.","examples":[{"sector":"Finance","text":"Automate expense approval processes by letting AI interpret descriptive sentences."},{"sector":"Customer Service","text":"AI Agents identify recurring inquiry patterns and autonomously build or update automation flows to streamline future responses."}],"products":["Microsoft 365 Copilot","Azure AI Language","Power Platform : Power Automate"]},{"id":29,"category":"Decision making","title":"Refine processes","description":"Leverage AI's ability to learn from past experiences and enhance actions, leading to better performance and efficiency.","examples":[{"sector":"Manufacturing","text":"Use AI for predictive maintenance, minimize downtime and reduce costs."},{"sector":"Education","text":"Employ AI to adapt to students’ learning styles, improving educational outcomes."}],"products":["Azure AI Foundry","Azure Machine Learning"]},{"id":30,"category":"Decision making","title":"Optimize strategy","description":"Use AI to predict and execute proactive strategies, optimizing results and boosting efficiency.","examples":[{"sector":"Sales & Marketing","text":"Predict the optimal strategy or sales approach for each customer, increasing conversions."},{"sector":"Customer Service","text":"Use AI to suggest the best response to customer inquiries, enhancing satisfaction and retention."}],"products":["Microsoft 365 Copilot for Sales","Microsoft 365 Copilot for Service","Azure Machine Learning"]},{"id":31,"category":"Decision making","title":"Resolve complex issues","description":"Use AI to analyze vast data, forecast outcomes, and provide optimized solutions to intricate problems.","examples":[{"sector":"Supply Chain","text":"Enhance logistics and inventory management by predicting demand and identifying bottlenecks."},{"sector":"Cybersecurity","text":"Agentic AI helps detect potential security threats from multiple sources, automating proactive defense strategies."}],"products":["Azure Machine Learning","Dynamics 365 Supply Chain Management","Azure AI Services"]},{"id":32,"category":"Decision making","title":"Spot anomalies","description":"Leverage AI to find unusual data patterns or outliers, allowing for early issue detection and proactive solutions.","examples":[{"sector":"Manufacturing","text":"Monitor equipment data to spot anomalies, enable proactive maintenance and avoid costly breakdowns."},{"sector":"Healthcare","text":"Detect anomalies in patient health data for early detection of potential health issues."}],"products":["Azure AI Foundry","Azure Machine Learning"]},{"id":33,"category":"Decision making","title":"Moderate content","description":"Use AI to automatically detect and filter inappropriate or harmful content, ensuring a safe digital environment.","examples":[{"sector":"E-commerce","text":"Review product listings and user reviews for potentially fraudulent or inappropriate content."},{"sector":"Social Media","text":"Filter offensive language, images, and videos to maintain a safe online community."}],"products":["Azure AI Foundry","Azure AI Custom Vision","Azure AI Content Safety","Azure AI Vision"]},{"id":34,"category":"Decision making","title":"Enhance decisions","description":"Use AI to assist in complex decision making, optimize processes, and predict outcomes, boosting efficiency and effectiveness.","examples":[{"sector":"Retail","text":"Predict sales trends and optimize inventory management for business efficiency."},{"sector":"Healthcare","text":"An AI Agent understands clinical language to help match patients to clinical trials based on medical history and eligibility criteria."}],"products":["Azure Machine Learning","Dynamics 365 Customer Insights","Azure AI Services","Azure OpenAI Service"]},{"id":35,"category":"Decision making","title":"Personalize content","description":"Leverage AI to generate tailored content suggestions based on user behavior, boosting customer engagement and experience.","examples":[{"sector":"E-commerce","text":"A Personal Shopping Agent curates product recommendations and can complete purchases on behalf of users."},{"sector":"Streaming Services","text":"Offer tailored movie or music recommendations based on user preferences, improving user experience."}],"products":["Azure AI Search","Azure Machine Learning","Dynamics 365 Customer Insights","Azure AI Services"]},{"id":36,"category":"Decision making","title":"Boost sales with insights","description":"Leverage CRM data with AI to enhance sales strategies and customer relationships.","examples":[{"sector":"Marketing","text":"Draft personalized sales emails using data insights for improved engagement."},{"sector":"Sales","text":"An AI agent uses summaries from customer meetings to auto-update records, and proactively recommend next best action."}],"products":["Microsoft 365 Copilot for Sales","Dynamics 365 Customer Insights","Dynamics 365 Sales"]},{"id":37,"category":"Decision making","title":"Streamline financial processes","description":"Utilize AI to automate financial tasks, improving accuracy and efficiency.","examples":[{"sector":"E-commerce","text":"Auto-generate detailed product descriptions for online catalogs."},{"sector":"Banking","text":"Assess credit risks by analyzing customer financial data."}],"products":["Azure AI Language","Dynamics 365 Finance & Operations"]},{"id":38,"category":"Visual perception","title":"Recognize and understand forms","description":"Use AI to extract data from various forms like receipts, invoices, and standard government or business documents.","examples":[{"sector":"Handwritten Text","text":"AI can identify handwritten text along with printed text."},{"sector":"Custom Models","text":"Train custom AI models to recognize specific types of forms and documents."}],"products":["Azure AI Foundry","Azure AI Document Intelligence","Power Platform : AI Builder","Azure AI Content Understanding"]},{"id":39,"category":"Visual perception","title":"Identify objects","description":"Use AI to create custom image recognition models for specific needs and applications.","examples":[{"sector":"Accessibility","text":"assist visually impaired users with descriptions of environments."},{"sector":"Retail","text":"Automatically identify and catalog products in images for streamlined inventory management."}],"products":["Azure AI Foundry","Azure Machine Learning","Azure AI Vision","Azure AI Content Understanding"]},{"id":40,"category":"Visual perception","title":"Convert images to text","description":"Use AI to transform various types of documents into editable and searchable data.","examples":[{"sector":"Administration","text":"Convert printed documents into digital text for easy search and retrieval."},{"sector":"Education","text":"Transform printed textbooks into digital format, facilitating remote learning."}],"products":["Bing Search API","Power Platform : AI Builder","Azure AI Vision"]},{"id":41,"category":"Visual perception","title":"Identify faces","description":"Use AI to identify or verify a person's identity by comparing and analyzing patterns based on facial contours.","examples":[{"sector":"Security Systems","text":"Enhance security by enabling systems to identify authorized individuals for access control."},{"sector":"Social Media","text":"Enables automatic tagging of individuals in social media platforms."}],"products":["Azure AI Foundry","Azure AI Vision","Azure AI Face service"]},{"id":42,"category":"Visual perception","title":"Understand environments","description":"Use AI to interpret relationships, patterns, and trends between different locations or spaces.","examples":[{"sector":"Retail","text":"Analyze customer movements and interactions within the store to understand behavior."},{"sector":"Urban Planning","text":"Optimize infrastructure and services by analyzing spatial data like population density or traffic patterns."}],"products":["Azure AI Foundry","Azure Maps","Azure AI Vision","Azure Digital Twins"]},{"id":43,"category":"Visual perception","title":"Analyse images","description":"Utilize AI to understand, interpret, and derive insights from visual data.","examples":[{"sector":"Agriculture","text":"Assist farmers in crop monitoring by analyzing drone-captured images of farmland for signs of disease or distress."},{"sector":"Traffic Control","text":"Manage traffic by analyzing real-time road images to identify congestion, accidents, or violations."}],"products":["Azure AI Foundry","Bing Search API","Azure Machine Learning","Azure AI Vision","Azure AI Content Understanding"]},{"id":44,"category":"Visual perception","title":"Categorize images","description":"Use AI to tag images based on their content, simplifying management and retrieval of visual data.","examples":[{"sector":"Digital Asset Management","text":"Simplify management of large image libraries by tagging images for easy retrieval."},{"sector":"E-Commerce","text":"Enhance customer experience by tagging product images, enabling customers to search for similar products."}],"products":["Azure AI Foundry","Azure Machine Learning","Azure AI Vision","Azure AI Content Understanding"]},{"id":45,"category":"Visual perception","title":"Create image captions","description":"Use AI to generate textual descriptions of images, enhancing understanding without visual perception.","examples":[{"sector":"Accessibility","text":"Improve accessibility for visually impaired users with textual descriptions of images on websites or applications."},{"sector":"Education","text":"Assist learning by providing detailed captions for educational images or diagrams."}],"products":["Azure AI Foundry","Azure AI Vision"]},{"id":46,"category":"Visual perception","title":"Generate image metadata","description":"Use AI to create structured data about images, enhancing searchability and management.","examples":[{"sector":"Digital Archives","text":"Facilitate search and retrieval in large image archives by generating detailed metadata for each image."},{"sector":"Photography","text":"Assist photographers in managing their portfolios by creating metadata for each photograph, including details like location, subject, camera settings, etc."}],"products":["Azure AI Foundry","Azure Machine Learning","Azure AI Vision"]},{"id":47,"category":"Text processing","title":"Analyze emotion and sentiment","description":"Use AI to detect and analyze user sentiment from text, helping to improve services and customer interactions.","examples":[{"sector":"Customer Support","text":"Analyze customer feedback or complaints with AI, identifying negative sentiments to prioritize actions and improve satisfaction."},{"sector":"Market Research","text":"AI Agents analyze customer sentiments from social media and product reviews, to create reports on public opinion and brand perception."}],"products":["Azure AI Language","Power Platform : AI Builder","Azure AI Services","Azure OpenAI Service"]},{"id":48,"category":"Text processing","title":"Generate contextual text","description":"Use AI to generate contextually relevant and personalized text, enhancing user experience and productivity.","examples":[{"sector":"Content Creation","text":"Create drafts for articles, blogs or social media posts with AI, to aid creation and curation."},{"sector":"Email Composition","text":"Suggest email responses or draft emails based on past interactions with AI, saving time and effort."}],"products":["Azure AI Foundry","Microsoft 365 Copilot","Azure AI Language","Microsoft 365 Agents SDK","Microsoft Copilot Studio"]},{"id":49,"category":"Text processing","title":"Summarize text","description":"Use AI to extract key points from large text data, aiding in quick understanding and efficient information retrieval.","examples":[{"sector":"Business Reports","text":"Summarize lengthy business reports into key insights with AI, enabling swift decision-making."},{"sector":"News Digest","text":"Summarize news articles into key points with AI, enabling readers to quickly grasp the main information."}],"products":["Azure AI Foundry","Azure AI Language","Microsoft 365 Agents SDK","Microsoft Copilot Studio","Microsoft Teams Premium"]},{"id":50,"category":"Text processing","title":"Translate text","description":"Use AI for translation across multiple languages, facilitating global communication and breaking language barriers.","examples":[{"sector":"International Business","text":"Translate business documents or emails instantly with AI, enabling smooth communication in multinational companies."},{"sector":"Education","text":"Translate educational materials with AI, providing access to diverse learning resources and aiding in multilingual education."}],"products":["Azure AI Foundry","Microsoft Copilot Studio","Azure AI Translator","Microsoft Teams Premium"]},{"id":51,"category":"Communication","title":"Engage in natural conversations","description":"Use AI to facilitate natural and engaging conversations, enhancing user experience and interaction.","examples":[{"sector":"Customer Support","text":"Understand and respond to user queries in natural language through an AI-powered chatbot."},{"sector":"Voice Assistants","text":"Engage in voice-based interactions with users for hands-free operations using AI."}],"products":["Azure AI Foundry","Microsoft 365 Agents SDK","Microsoft Copilot Studio","Azure AI Translator","Azure AI Bot Service"]},{"id":52,"category":"Communication","title":"Convert text into speech","description":"Use AI to transform text into lifelike speech, enhancing accessibility and user experience.","examples":[{"sector":"Accessibility","text":"Read out articles, books, or documents with AI for users with visual impairments."},{"sector":"Voice Assistants","text":"Provide voice-based responses or instructions in applications or devices using AI. e."}],"products":["Azure AI Foundry","Azure AI Language"]},{"id":53,"category":"Communication","title":"Automate answers","description":"Quickly address inquiries with instant, precise responses.","examples":[{"sector":"Retail","text":"Handle customer queries about products via chatbot."},{"sector":"Travel","text":"Answer queries from airport guests on services and navigation."}],"products":["Azure AI Foundry","Azure AI Search","Microsoft 365 Agents SDK","Microsoft Copilot Studio","Azure AI Bot Service"]},{"id":54,"category":"Communication","title":"Translate speech instantly","description":"Enable instant translation of spoken language for seamless communication.","examples":[{"sector":"Customer Support","text":"Provide real-time translation in multilingual customer interactions."},{"sector":"Travel & Tourism","text":"Facilitate communication for travelers by translating local languages instantly. ‘a ~ rc >)."}],"products":["Azure AI Foundry","Microsoft 365 Copilot","Azure AI Language"]},{"id":55,"category":"Communication","title":"Communicate via avatar","description":"Create engaging experiences with audio and visual avatars for immersive gaming and personal assistants.","examples":[{"sector":"Gaming industry","text":"Enhance user immersion with unique voiced characters."},{"sector":"Virtual assistants","text":"Improve user engagement with lifelike, expressive voices. \"a ~."}],"products":["Azure AI Foundry"]},{"id":56,"category":"Communication","title":"Understand user intent","description":"Interpret human language to identify user's specific intentions and context.","examples":[{"sector":"Customer Service","text":"Understand customer requests and provide accurate support."},{"sector":"Chatbots","text":"Enable chatbots to understand queries and provide relevant responses."}],"products":["Azure AI Foundry","Azure AI Language","Microsoft 365 Agents SDK","Microsoft Copilot Studio","Azure AI Bot Service"]},{"id":57,"category":"Speech recognition","title":"Convert speech to text","description":"Transcribe spoken language into text with AI and enable further text-based use.","examples":[{"sector":"Transcription Services","text":"Automate transcription of interviews, meetings or lectures."},{"sector":"Voice Assistants","text":"Convert spoken commands into text for processing."}],"products":["Azure AI Foundry"]},{"id":58,"category":"Speech recognition","title":"Identify voices","description":"Use unique voice characteristics to enhance security and personalization.","examples":[{"sector":"Customer Service","text":"Identify callers for personalized interactions and swift verification."},{"sector":"Smart Home Devices","text":"Customize user experience by recognizing different household members’ voices."}],"products":["Azure AI Foundry"]},{"id":59,"category":"Speech recognition","title":"Activate with keyword","description":"Personalize activation of AI assistants or IoT devices using specific keywords.","examples":[{"sector":"AI Assistants","text":"Allow users to activate assistants with preferred catchphrases."},{"sector":"Automotive Industry","text":"Improve driving experience with custom voice command activation."}],"products":["Azure AI Foundry","Azure AI Language","Azure IoT Edge"]},{"id":60,"category":"Speech recognition","title":"Enable voice commands","description":"Interact with devices or applications hands-free for convenience and accessibility.","examples":[{"sector":"Healthcare Industry","text":"Assist medical professionals in accessing information or controlling equipment hands-free."},{"sector":"Smart Home Appliances","text":"Control home appliances like lights or thermostats through voice commands."}],"products":["Azure AI Foundry","Azure AI Language"]},{"id":61,"category":"Speech recognition","title":"Understand special context","description":"Tailor speech synthesis and recognition for specific contexts, accents, or industries.","examples":[{"sector":"Telecommunications","text":"Train voice assistants to understand industry-specific jargon and accents."},{"sector":"Healthcare Industry","text":"Enable medical applications to understand and generate medical terminologies."}],"products":["Azure AI Foundry","Azure AI Language"]},{"id":62,"category":"Speech recognition","title":"Mimic specific voices","description":"Create lifelike, synthesized speech that mirrors individual vocal characteristics.","examples":[{"sector":"Entertainment Industry","text":"Create realistic voiceovers for animated characters or digital influencers."},{"sector":"Accessibility","text":"Develop assistive technologies that speak in familiar voices for users with special needs."}],"products":["Azure AI Foundry","Azure AI Language"]},{"id":63,"category":"Environmental awareness","title":"Interpret touch for control","description":"Enable intuitive control through touch-based interactions.","examples":[{"sector":"Tech sector","text":"Navigating smartphone or tablet interfaces using touch gestures."},{"sector":"Design sector","text":"Drawing or annotating on touch-enabled devices for creative work."}],"products":["Azure AI Custom Vision","Microsoft Surface"]},{"id":64,"category":"Environmental awareness","title":"Understand flavors and tastes","description":"Create and predict flavor profiles based on user purchases and new recipes.","examples":[{"sector":"Retail","text":"Create personalized flavor profiles based on food and beverage purchases."},{"sector":"Food Industry","text":"Predict the optimum flavor profiles for new recipes or food products."}],"products":["Azure AI Foundry","Azure Machine Learning","Microsoft Fabric"]},{"id":65,"category":"Environmental awareness","title":"Predict chemical properties","description":"Forecast the smell or detect hazards based on chemical profiles.","examples":[{"sector":"Chemical Industry","text":"Enhance fabric softener smell with optimal chemical combinations."},{"sector":"Safety and Security","text":"Identify hazards based on unique chemical profiles."}],"products":["Azure AI Foundry","Azure Machine Learning","Microsoft Fabric"]},{"id":66,"category":"Environmental awareness","title":"Navigate smartly with sensing","description":"Detect objects and environments for advanced navigation.","examples":[{"sector":"Robotics","text":"Recognize objects and obstacles for safe, efficient robotic navigation."},{"sector":"Retail","text":"Understand surroundings to provide contextaware product recommendations."}],"products":["Azure Machine Learning","Azure AI Vision","Azure Spatial Anchors"]},{"id":67,"category":"Environmental awareness","title":"Detect motion","description":"Use motion detection for improved interaction and monitoring.","examples":[{"sector":"Sports","text":"Monitor and analyze athlete movements for performance improvements."},{"sector":"Security","text":"Detect unusual motions for enhanced security surveillance and alerts."}],"products":["Azure AI Foundry","Azure Machine Learning","Azure IoT Edge"]},{"id":68,"category":"Content creation","title":"Generate images from text","description":"Create unique images from textual descriptions utilizing AI.","examples":[{"sector":"Entertainment & Media","text":"Create unique characters and scenes for movies or games from text descriptions."},{"sector":"Advertising","text":"Generate visuals for ad campaigns based on text-described themes or concepts."}],"products":["Azure AI Foundry","Microsoft 365 Copilot","Azure AI Content Understanding","Microsoft Designer"]},{"id":69,"category":"Content creation","title":"Generate or enhance text","description":"Implement advanced natural language understanding for more sophisticated, human-like interactions.","examples":[{"sector":"Content Creation","text":"Generate high-quality text for blogs, articles, or social media posts, enhancing productivity."},{"sector":"Data Analysis","text":"Extract insights from large volumes of text data, enabling informed business decisions."}],"products":["Azure AI Foundry","Microsoft 365 Copilot","Azure AI Language"]},{"id":70,"category":"Content creation","title":"Generate synthetic data","description":"Create synthetic data that mimics real data for robust model training without compromising privacy.","examples":[{"sector":"Finance","text":"Simulate financial scenarios to test models, enhancing risk management without revealing sensitive data."},{"sector":"Retail","text":"Generate synthetic customer behavior data to optimize sales strategies while preserving customer privacy."}],"products":["Azure AI Foundry","Azure Machine Learning","Microsoft Fabric"]},{"id":71,"category":"Content creation","title":"Personalize marketing","description":"Use AI to tailor marketing campaigns by analyzing customer data and predicting optimal engagement strategies.","examples":[{"sector":"Targeted Campaigns","text":"Segment customers based on behavior and preferences for impactful marketing campaigns with AI."},{"sector":"Content Improvement","text":"Leverage AI to suggest enhancements to marketing content, aligning with target audience interests."}],"products":["Azure AI Search","Azure Machine Learning","Dynamics 365 Customer Insights"]},{"id":72,"category":"Content creation","title":"Create dynamic web pages","description":"Use AI to generate text, forms, and layouts for web pages, simplifying web development.","examples":[{"sector":"Form Creation","text":"Use AI to automatically generate detailed forms for event registrations."},{"sector":"Dynamic Layouts","text":"Create dynamic webpage layouts for a product catalog using AI."}],"products":["GitHub Copilot","Azure AI Language","Power Platform : Power Pages"]},{"id":73,"category":"Process optimization","title":"Streamline R&D","description":"Optimize research and development processes through intelligent AI analysis.","examples":[{"sector":"Lab Efficiency","text":"Automate and optimize laboratory processes for increased efficiency with AI."},{"sector":"Research Assistant","text":"A Research Assistant Agent explores scientific literature, patents, and market data to surface relevant insights for new product design."}],"products":["Azure Machine Learning","Power BI","Microsoft Fabric","Azure AI Services"]},{"id":74,"category":"Process optimization","title":"Adjust pricing","description":"Use AI for pricing optimization to enhance profitability.","examples":[{"sector":"Real-time Adjustments","text":"Adjust product prices in real-time based on market demand and competition with AI."},{"sector":"Price Prediction","text":"Predict the optimal price for a new product or service using AI."}],"products":["Azure Machine Learning","Microsoft Fabric","Dynamics 365 Finance & Operations","Microsoft 365 Agents SDK"]},{"id":75,"category":"Process optimization","title":"Improve routing","description":"Leverage AI to efficiently optimize routes, logistics and supply chains.","examples":[{"sector":"Delivery Optimization","text":"Determine the most efficient delivery routes to minimize time and fuel costs using AI."},{"sector":"Inventory Management","text":"Optimize inventory management based on demand forecasting with AI."}],"products":["Microsoft 365 Copilot for Service","Azure Machine Learning","Azure Maps","Dynamics 365 Supply Chain Management"]},{"id":76,"category":"Process optimization","title":"Enhance farming","description":"Use AI to optimize farming for enhanced efficiency.","examples":[{"sector":"Optimal Crop Growth","text":"Utilize AI to analyze soil and weather data for optimal crop growth."},{"sector":"Crop Monitoring","text":"Monitor crops throughout their growth cycle using cameras and sensors to notify if and when intervention is required."}],"products":["Azure AI Foundry","Azure Machine Learning","Microsoft Fabric","Dynamics 365 Supply Chain Management","Azure IoT Operations"]},{"id":77,"category":"Process optimization","title":"Enhance production","description":"Use AI to optimize production and warehousing for enhanced efficiency.","examples":[{"sector":"Maintenance Prediction","text":"Predict machinery maintenance needs with AI to avoid production downtime."},{"sector":"Demand Forecast","text":"Predict demand to optimize production, storage and delivery of goods."}],"products":["Azure AI Foundry","Azure Machine Learning","Microsoft Fabric","Dynamics 365 Supply Chain Management","Azure IoT Operations"]},{"id":78,"category":"Process optimization","title":"Quality control & maintenance","description":"Use AI for enhanced quality control and predictive maintenance.","examples":[{"sector":"Real-Time Defect Detection","text":"Identify product defects in real-time during production processes with AI."},{"sector":"Quality Standards Improvement","text":"Analyze historical data with AI to improve quality control standards."}],"products":["Azure Machine Learning","Dynamics 365 Field Service","Microsoft 365 Agents SDK","Azure AI Vision","Azure IoT Edge"]},{"id":79,"category":"Process optimization","title":"Manage complex systems","description":"Use AI to efficiently manage cities, countries, and large factories.","examples":[{"sector":"Traffic Optimization","text":"Analyze city traffic data with AI to optimize road networks and reduce congestion."},{"sector":"Resource Management","text":"Use AI to manage national resources and public services efficiently."}],"products":["Azure Machine Learning","Dynamics 365 Supply Chain Management","Microsoft 365 Agents SDK","Azure Digital Twins"]},{"id":80,"category":"Process optimization","title":"Spot damage, predict failure","description":"Leverage AI for damage detection and predictive maintenance.","examples":[{"sector":"Damage Detection","text":"Detect signs of damage in machinery for timely repairs using AI."},{"sector":"Predictive Maintenance","text":"Predict maintenance needs with AI to prevent unexpected equipment breakdowns."}],"products":["Azure Machine Learning","Dynamics 365 Field Service","Azure IoT Operations"]},{"id":81,"category":"Process optimization","title":"Optimize sales workflows","description":"Use AI for predictive insights and automation in sales workflows, streamlining tasks and CRM.","examples":[{"sector":"Lead Scoring","text":"Evaluate past data with AI to prioritize leads, targeting promising prospects."},{"sector":"Tailored Follow-Ups","text":"Assess customer interactions with AI to suggest custom actions, boosting sales closure rates."}],"products":["Microsoft 365 Copilot for Sales","Azure Machine Learning","Microsoft Fabric"]},{"id":82,"category":"Process optimization","title":"Streamline field service","description":"Boost technician productivity and simplify work order management through AI.","examples":[{"sector":"Work Order Management","text":"An AI Agent creates, prioritizes, and updates work orders based on urgency, technician availability, and location."},{"sector":"Field Service","text":"An AI Agent notifies technicians of schedule changes, tracks job progress, and provides managers with live status updates and summaries."}],"products":["Azure AI Language","Dynamics 365 Field Service","Azure AI Services"]},{"id":83,"category":"Process optimization","title":"Simplify app development","description":"Speed up development and enhance creativity by transforming natural language into functional app components.","examples":[{"sector":"HR","text":"Create employee onboarding apps quickly by describing the desired functionality."},{"sector":"Retail","text":"Develop inventory management apps by converting sketches or designs into working prototypes."}],"products":["GitHub Copilot","Power Platform : Power Apps"]},{"id":84,"category":"Navigation and control","title":"Automate home operations","description":"AI-Controlled home automation and robotics.","examples":[{"sector":"Lighting and Temperature","text":"Control home's lighting and temperature based on user preferences and time of day."},{"sector":"Cleaning","text":"Operate home cleaning robots to maintain a clean living environment."}],"products":["Azure AI Foundry","Azure Digital Twins","Azure IoT Operations"]},{"id":85,"category":"Navigation and control","title":"Human-robot interaction","description":"Use AI to power robots that interact or collaborate safely with people.","examples":[{"sector":"Customer Service","text":"Operate a robot that can understand and respond to customer queries."},{"sector":"Manufacturing","text":"Program a collaborative robot (cobot) to safely work alongside humans in a factory."}],"products":["Azure AI Foundry","Azure Digital Twins","Azure IoT Operations"]},{"id":86,"category":"Navigation and control","title":"Automate fulfillment","description":"Use AI to drive warehouse and supermarket systems, and control robots for efficient order fulfillment.","examples":[{"sector":"Warehouse","text":"Automate order picking with robots programmed to navigate the layout efficiently."},{"sector":"Fulfillment Center","text":"Operate robots to sort, pack, and dispatch goods based on order information."}],"products":["Azure AI Foundry","Dynamics 365 Supply Chain Management","Azure IoT Operations"]},{"id":87,"category":"Navigation and control","title":"Navigate","description":"Guide people, ground, air and water vehicles to navigate autonomously using AI.","examples":[{"sector":"Disaster Response","text":"Operate a walking robot to navigate through a disaster site for rescue operations."},{"sector":"Agriculture","text":"Drive a vehicle that can autonomously navigate a farm for tasks like seeding or harvesting."}],"products":["Azure AI Foundry","Azure Maps","Azure Digital Twins","Azure IoT Edge","Azure IoT Operations"]}];
+const CAT = {
+ "Agentic":"--c-agentic","Information Management":"--c-info","Data and predictive analytics":"--c-data","Task automation":"--c-task",
+ "Decision making":"--c-decision","Visual perception":"--c-visual","Text processing":"--c-text","Communication":"--c-comm",
+ "Speech recognition":"--c-speech","Environmental awareness":"--c-env","Content creation":"--c-content","Process optimization":"--c-process","Navigation and control":"--c-nav"};
+const byId = Object.fromEntries(CARDS.map(c=>[c.id,c]));
+
+/* Discovery questions: each option points at the cards it most often surfaces */
+const QUESTIONS = [
+ {key:"teams",title:"Which teams are in scope?",help:"Pick every function represented in the room or affected by the agent.",opts:[
+  ["Customer service / contact centre",[8,53,56,51,16,24,47,54,30,58,7]],
+  ["Sales",[36,81,30,15,19,22,48]],
+  ["Marketing & comms",[4,71,12,14,19,47,68,69,35]],
+  ["Finance",[37,25,28,20,21,70,74]],
+  ["HR & people",[25,83,48,53,49,3]],
+  ["IT & security",[6,18,20,5,31,7]],
+  ["Legal & compliance",[3,9,49,33,38]],
+  ["Operations & supply chain",[1,2,23,31,75,77,86]],
+  ["Field service & maintenance",[82,80,78,32,1]],
+  ["Manufacturing & engineering",[77,78,80,29,85,73]],
+  ["Software & digital",[5,83,72]],
+  ["Leadership & strategy",[34,14,21,7,24]],
+  ["Public services & estates",[79,42,82,53,10,50]]]},
+ {key:"pains",title:"What slows them down today?",help:"Listen for the pain in their own words, then tag the closest match.",opts:[
+  ["People can't find information",[10,9,53,3,11]],
+  ["Manual admin and re-keying",[25,28,38,40,3,13]],
+  ["Meeting and email overload",[3,49,48,57]],
+  ["Same questions asked again and again",[53,56,51,8]],
+  ["Slow document review and drafting",[3,48,49,69,38]],
+  ["Decisions made without good data",[24,15,34,21,17]],
+  ["Problems spotted too late",[18,32,80,20,22]],
+  ["Language or accessibility barriers",[50,54,45,52,57]],
+  ["Hand-offs between disconnected systems",[7,28,1,82]],
+  ["Content takes too long to produce",[69,68,48,71]]]},
+ {key:"data",title:"Where does the knowledge and data live?",help:"This shapes the agent's knowledge sources and connectors.",opts:[
+  ["SharePoint, OneDrive, Teams",[10,9,3,49,53]],
+  ["Outlook and meetings",[3,48,49,57]],
+  ["CRM / Dynamics 365",[36,81,19,22,30]],
+  ["ERP / finance system",[37,23,74,21]],
+  ["Scanned forms and PDFs",[38,40,13,11]],
+  ["Public website and external sources",[14,10,53]],
+  ["Sensors, IoT, operational telemetry",[80,77,78,67,84]],
+  ["Images and video",[43,39,44,33]],
+  ["Call recordings and voice",[57,58,61,54]]]}
+];
+const KNOWLEDGE = ["SharePoint / OneDrive","Teams chats & channels","Outlook / email","Dataverse / Dynamics 365","ERP / finance system","CRM (non-Dynamics)","Line-of-business database","Public website","Scanned documents / PDFs","Third-party SaaS (ServiceNow, Salesforce…)"];
+const CHANNELS = ["Microsoft 365 Copilot","Microsoft Teams","SharePoint site","Public website","Mobile / other app","Runs in background"];
+const AGENT_TYPES = {
+ retrieval:["Retrieval","Answers questions from knowledge sources"],
+ task:["Task","Takes actions or completes a workflow when asked"],
+ autonomous:["Autonomous","Triggered by events and works in the background"]};
+const PLATFORMS = ["Microsoft 365 Copilot (built-in / declarative agent)","Copilot Studio agent","Copilot Studio + Azure AI Foundry","Azure AI Foundry (pro-code)","Dynamics 365 Copilot & agents","Microsoft Security Copilot","GitHub Copilot","Power Platform (Power Automate / AI Builder)"];
+
+function suggestPlatform(c, complexity){
+  const p = c.products.join("|");
+  if(/Security Copilot|Sentinel/.test(p)) return [PLATFORMS[5],"The card's product set points to the Security Copilot stack."];
+  if(/GitHub/.test(p) && !/Copilot Studio/.test(p)) return [PLATFORMS[6],"Developer-facing scenario built on GitHub."];
+  if(/Copilot Studio|Agents SDK|Microsoft 365 Copilot$|Microsoft 365 Copilot\|/.test(p+"|") || /Agent Service/.test(p)){
+    if(complexity>=4 && /Foundry|Agents SDK/.test(p)) return [PLATFORMS[2],"Start low-code in Copilot Studio and add Foundry models or tools for the heavy lifting."];
+    if(c.category==="Agentic") return [PLATFORMS[1],"Agentic scenario: Copilot Studio with autonomous triggers, grow into Foundry Agent Service if needed."];
+    return [PLATFORMS[1],"Fits a low-code agent published to Microsoft 365 Copilot and Teams."];
+  }
+  if(/Dynamics 365|Copilot for Sales|Copilot for Service/.test(p)) return [PLATFORMS[4],"Sits on Dynamics 365 data; use its built-in Copilot and agents first."];
+  if(/Power Automate|AI Builder|Power Apps|Power Pages/.test(p)) return [PLATFORMS[7],"Process automation with Power Platform, surfaced through a Copilot Studio agent."];
+  return [PLATFORMS[3],"Needs custom models (vision, speech, ML or IoT). Plan a pro-code build in Azure AI Foundry."];
+}
+function guessType(c){
+  if(["Information Management","Communication","Text processing","Speech recognition"].includes(c.category)) return "retrieval";
+  if(["Task automation","Content creation","Visual perception"].includes(c.category)) return "task";
+  return "autonomous";
+}
+function blankReq(c){
+  return {name:c.title.replace(/^./,m=>m.toUpperCase())+" agent",problem:"",users:"",type:guessType(c),knowledge:[],channels:["Microsoft 365 Copilot","Microsoft Teams"],actions:"",success:"",value:0,complexity:0,platform:"",sponsor:"",notes:""};
+}
+
+/* ---------- state ---------- */
+const STORE_KEY="add-workshop-v1";
+function exampleState(){
+  const s={example:true,customer:{name:"Northwell Borough Council",sector:"Local government",date:"2026-10-14",attendees:"Head of Customer Services, Revenues & Benefits lead, IT Business Partner",goals:"Cut avoidable contact into the call centre. Free up officers from manual case admin. Build confidence in Copilot ahead of a wider rollout."},
+   answers:{teams:["Customer service / contact centre","Public services & estates","Finance"],pains:["Same questions asked again and again","Manual admin and re-keying","People can't find information"],data:["SharePoint, OneDrive, Teams","Scanned forms and PDFs"]},
+   sort:{53:"p",3:"p",38:"p",82:"m",49:"m",10:"m",18:"x",55:"x"},reqs:{}};
+  s.reqs[53]=Object.assign(blankReq(byId[53]),{name:"Resident enquiries agent",problem:"Residents call about bin collections, council tax and parking permits. Most answers are already on the website but hard to find.",users:"Residents on the website; contact centre advisers in Teams",type:"retrieval",knowledge:["Public website","SharePoint / OneDrive"],channels:["Public website","Microsoft Teams"],actions:"Look up collection day by postcode. Hand off to a live adviser.",success:"Deflect 15% of calls on the top five enquiry types",value:5,complexity:2,sponsor:"Head of Customer Services"});
+  s.reqs[3]=Object.assign(blankReq(byId[3]),{name:"Case meeting assistant",problem:"Officers spend an hour after each case review writing up actions and chasing follow-ups.",users:"Revenues & Benefits officers",type:"task",knowledge:["Teams chats & channels","Outlook / email"],channels:["Microsoft 365 Copilot","Microsoft Teams"],actions:"Summarise meeting, create Planner tasks, draft follow-up email",success:"Save 3 hours per officer per week",value:4,complexity:2,sponsor:"Revenues & Benefits lead"});
+  s.reqs[38]=Object.assign(blankReq(byId[38]),{name:"Benefit form intake agent",problem:"Paper and PDF claim forms are keyed in by hand, with a 6-day backlog.",users:"Benefits processing team",type:"autonomous",knowledge:["Scanned documents / PDFs","Line-of-business database"],channels:["Runs in background","Microsoft Teams"],actions:"Extract fields, validate, create case record, flag missing evidence",success:"Backlog under 2 days",value:5,complexity:4,sponsor:"IT Business Partner"});
+  return s;
+}
+function blankState(){return {example:false,customer:{name:"",sector:"",date:new Date().toISOString().slice(0,10),attendees:"",goals:""},answers:{teams:[],pains:[],data:[]},sort:{},reqs:{}}}
+let S;
+try{const raw=localStorage.getItem(STORE_KEY); S=raw?JSON.parse(raw):exampleState();}catch(e){S=exampleState();}
+let view="workshop", deckFilter={cat:"All",q:"",only:"all"};
+try{view=localStorage.getItem(STORE_KEY+"-view")||"workshop"}catch(e){}
+function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(S));localStorage.setItem(STORE_KEY+"-view",view)}catch(e){}}
+
+/* ---------- helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+function toast(t){const h=$("#toastHost");h.innerHTML=`<div class="toast" role="status">${esc(t)}</div>`;clearTimeout(toast._t);toast._t=setTimeout(()=>h.innerHTML="",1800)}
+function shortlist(){return CARDS.filter(c=>S.sort[c.id]==="p"||S.sort[c.id]==="m")}
+function reqDone(id){const r=S.reqs[id];return r&&r.problem&&r.value&&r.complexity}
+function quadrant(r){const hv=r.value>=3.5||r.value>=4, lc=r.complexity<=3;
+  if(r.value>=4&&r.complexity<=3) return ["Quick win","q-quick"];
+  if(r.value>=4) return ["Strategic bet","q-strat"];
+  if(r.complexity<=3) return ["Fill-in","q-fill"];
+  return ["Revisit later","q-later"];}
+function recommendations(){
+  const score={},why={};
+  QUESTIONS.forEach(q=>q.opts.forEach(([lab,ids])=>{ if(!(S.answers[q.key]||[]).includes(lab)) return;
+    ids.forEach((id,i)=>{score[id]=(score[id]||0)+1+(ids.length-i)*0.04;(why[id]=why[id]||[]).push(lab)})}));
+  Object.keys(score).forEach(id=>{const c=byId[id]; if(/Copilot Studio|Microsoft 365 Copilot|Agent Service|Agents SDK/.test(c.products.join())) score[id]+=0.3;});
+  return Object.keys(score).map(Number).sort((a,b)=>score[b]-score[a]).map(id=>({id,score:score[id],why:why[id]}));
+}
+function recSet(){return new Set(recommendations().slice(0,15).map(r=>r.id))}
+
+/* ---------- chrome ---------- */
+const STEPS=[["workshop","Workshop"],["discover","Discover"],["sort","Card sort"],["capture","Requirements"],["backlog","Backlog"]];
+function renderChrome(){
+  $("#steps").innerHTML=STEPS.map(([k,l],i)=>`<button type="button" data-step="${k}" ${view===k?'aria-current="step"':""}><span class="n">${i+1}</span>${l}</button>`).join("");
+  $("#hdrCust").textContent=S.customer.name?("· "+S.customer.name+(S.example?" (example)":"")):"";
+  const v=Object.values(S.sort);
+  $("#tally").innerHTML=`<span title="Priority">${v.filter(x=>x==="p").length} priority</span><span title="Maybe">${v.filter(x=>x==="m").length} maybe</span><span title="Requirements captured">${shortlist().filter(c=>reqDone(c.id)).length}/${shortlist().length} captured</span>`;
+}
+$("#steps").addEventListener("click",e=>{const b=e.target.closest("[data-step]");if(b){go(b.dataset.step)}});
+function go(v){view=v;save();render();window.scrollTo({top:0})}
+
+function exampleBanner(){return S.example?`<div class="banner"><span><b>Example workshop.</b> These answers are made up to show how the deck works.</span><span class="row"><button class="btn sm" data-act="new">Start a new workshop</button></span></div>`:""}
+
+/* ---------- views ---------- */
+function vWorkshop(){
+  const c=S.customer;
+  return `${exampleBanner()}
+  <div class="intro"><span class="label">Step 1</span><h2>Set up the workshop</h2><p class="muted">Record who you are working with and what they want from AI. Everything you enter is saved in this browser as you go; use Backlog to copy or export it.</p></div>
+  <div class="panel grid2">
+    <div class="field"><label for="cName">Customer</label><input type="text" id="cName" data-c="name" value="${esc(c.name)}" placeholder="Organisation name"></div>
+    <div class="field"><label for="cSector">Sector</label><input type="text" id="cSector" data-c="sector" value="${esc(c.sector)}" placeholder="e.g. Local government, Retail"></div>
+    <div class="field"><label for="cDate">Workshop date</label><input type="date" id="cDate" data-c="date" value="${esc(c.date)}"></div>
+    <div class="field"><label for="cAtt">Attendees</label><input type="text" id="cAtt" data-c="attendees" value="${esc(c.attendees)}" placeholder="Names and roles"></div>
+    <div class="field" style="grid-column:1/-1"><label for="cGoals">Business goals for AI</label><textarea id="cGoals" data-c="goals" placeholder="What outcomes would make this worthwhile?">${esc(c.goals)}</textarea></div>
+  </div>
+  <div class="row"><button class="btn primary" data-go="discover">Next: discovery questions</button><button class="btn ghost" data-go="sort">Skip to the card sort</button></div>
+  <div class="panel"><span class="label">How the session runs</span>
+   <div class="grid2" style="margin-top:10px">
+    <p><b>Discover.</b> Ask three questions about teams, pain points and data. The deck ranks the cards that fit.</p>
+    <p><b>Card sort.</b> Walk the ${CARDS.length} cards with the customer and mark each one priority, maybe or not now.</p>
+    <p><b>Requirements.</b> For every shortlisted card, capture the problem, users, data, actions and how success is measured.</p>
+    <p><b>Backlog.</b> Score value against complexity, see the suggested build path and copy the summary out.</p>
+   </div></div>`;
+}
+function vDiscover(){
+  const recs=recommendations().slice(0,15);
+  return `${exampleBanner()}
+  <div class="intro"><span class="label">Step 2</span><h2>Discovery questions</h2><p class="muted">Tag what you hear. The deck ranks the cards that match, so you open the card sort with the most relevant ones first.</p></div>
+  <div class="qgrid">${QUESTIONS.map(q=>`<div class="panel q"><h3>${q.title}</h3><p class="muted">${q.help}</p>
+   <div class="chips">${q.opts.map(([lab])=>`<button type="button" class="chip" data-q="${q.key}" data-opt="${esc(lab)}" aria-pressed="${(S.answers[q.key]||[]).includes(lab)}">${esc(lab)}</button>`).join("")}</div></div>`).join("")}</div>
+  <div class="row" style="justify-content:space-between"><h3>Suggested cards to start with</h3>${recs.length?`<button class="btn primary" data-act="sortRecs">Sort these cards</button>`:""}</div>
+  ${recs.length?`<div class="recs">${recs.map(r=>{const c=byId[r.id];return `<div class="rec" style="--cc:var(${CAT[c.category]})">
+    <div class="row" style="justify-content:space-between"><span class="label"><span class="cat-dot"></span>${esc(c.category)}</span><span class="score">No. ${c.id}</span></div>
+    <h3>${esc(c.title)}</h3><p class="muted" style="font-size:.86rem">${esc(c.description)}</p>
+    <div class="why">Matches: ${r.why.map(esc).join(" · ")}</div>
+    <div class="row"><button class="btn sm" data-open="${c.id}">Open card</button>${statusMini(c.id)}</div></div>`}).join("")}</div>`
+  :`<div class="empty">Tag at least one answer above to see suggested cards.</div>`}`;
+}
+function statusMini(id){const s=S.sort[id];return s?`<span class="pill ${s==="x"?"":s}">${{p:"Priority",m:"Maybe",x:"Not now"}[s]}</span>`:""}
+function vSort(){
+  const cats=["All",...Object.keys(CAT)];
+  const recs=recSet();
+  let list=CARDS.filter(c=>(deckFilter.cat==="All"||c.category===deckFilter.cat));
+  const q=deckFilter.q.trim().toLowerCase();
+  if(q) list=list.filter(c=>(c.title+" "+c.description+" "+c.category+" "+c.examples.map(e=>e.sector+" "+e.text).join(" ")+" "+c.products.join(" ")).toLowerCase().includes(q));
+  if(deckFilter.only==="recs") list=list.filter(c=>recs.has(c.id));
+  if(deckFilter.only==="unsorted") list=list.filter(c=>!S.sort[c.id]);
+  if(deckFilter.only==="short") list=list.filter(c=>S.sort[c.id]==="p"||S.sort[c.id]==="m");
+  if(recs.size && deckFilter.only!=="recs") list=[...list].sort((a,b)=>(recs.has(b.id)-recs.has(a.id))||a.id-b.id);
+  const sorted=Object.keys(S.sort).length;
+  return `${exampleBanner()}
+  <div class="intro"><span class="label">Step 3 · ${sorted} of ${CARDS.length} cards sorted</span><h2>Card sort</h2><p class="muted">Open a card to read the examples together, then mark it. Priority and maybe cards move on to requirements capture.</p></div>
+  <div class="toolbar">
+    <input type="text" id="deckQ" placeholder="Search cards, sectors or products" value="${esc(deckFilter.q)}" aria-label="Search cards">
+    <select id="deckOnly" aria-label="Show" style="width:auto">
+      ${[["all","All cards"],["recs","Suggested for this customer"],["unsorted","Not yet sorted"],["short","Shortlisted"]].map(([k,l])=>`<option value="${k}" ${deckFilter.only===k?"selected":""}>${l}</option>`).join("")}
+    </select>
+  </div>
+  <div class="cats">${cats.map(c=>`<button type="button" class="chip" data-cat="${esc(c)}" aria-pressed="${deckFilter.cat===c}" style="--cc:var(${CAT[c]||"--muted"})">${c==="All"?"":`<span class="cat-dot"></span>`}${esc(c)}</button>`).join("")}</div>
+  ${list.length?`<div class="deck">${list.map(c=>cardHTML(c,recs.has(c.id))).join("")}</div>`:`<div class="empty">No cards match. Clear the search or pick another category.</div>`}`;
+}
+function cardHTML(c,isRec){
+  const s=S.sort[c.id]||"";
+  return `<article class="card ${s?"st-"+s:""}" style="--cc:var(${CAT[c.category]})">
+    <div class="tab"><span>${esc(c.category)}</span><span class="no">No. ${c.id}</span></div>
+    <button type="button" class="body" data-open="${c.id}">${isRec?`<span class="flag">Suggested</span>`:""}<h3>${esc(c.title)}</h3><p>${esc(c.description)}</p></button>
+    <div class="acts">
+      <button type="button" class="p ${s==="p"?"on":""}" data-set="p" data-id="${c.id}" aria-pressed="${s==="p"}">Priority</button>
+      <button type="button" class="m ${s==="m"?"on":""}" data-set="m" data-id="${c.id}" aria-pressed="${s==="m"}">Maybe</button>
+      <button type="button" class="x ${s==="x"?"on":""}" data-set="x" data-id="${c.id}" aria-pressed="${s==="x"}">Not now</button>
+    </div></article>`;
+}
+function vCapture(){
+  const sl=shortlist().sort((a,b)=>(S.sort[a.id]===S.sort[b.id]?a.id-b.id:S.sort[a.id]==="p"?-1:1));
+  return `${exampleBanner()}
+  <div class="intro"><span class="label">Step 4 · ${sl.filter(c=>reqDone(c.id)).length} of ${sl.length} captured</span><h2>Requirements</h2><p class="muted">Work through each shortlisted card. A requirement counts as captured once it has a problem statement and value and complexity scores.</p></div>
+  ${sl.length?`<div class="reqlist">${sl.map(c=>{const r=S.reqs[c.id];const done=reqDone(c.id);
+    return `<div class="req" style="--cc:var(${CAT[c.category]})"><div style="min-width:0;display:grid;gap:4px">
+      <div class="meta"><span><span class="cat-dot"></span>${esc(c.category)} · No. ${c.id}</span>${statusMini(c.id)}<span class="pill ${done?"ok":"todo"}">${done?"Captured":"To capture"}</span></div>
+      <h3>${esc(r?.name||c.title)}</h3>${r?.problem?`<p class="muted" style="font-size:.88rem">${esc(r.problem)}</p>`:""}</div>
+      <button class="btn ${done?"":"primary"}" data-open="${c.id}" data-focus="req">${done?"Edit":"Capture"}</button></div>`}).join("")}</div>`
+  :`<div class="empty">No cards shortlisted yet. Mark cards as priority or maybe in the card sort.<div style="margin-top:10px"><button class="btn primary" data-go="sort">Go to card sort</button></div></div>`}`;
+}
+function vBacklog(){
+  const items=shortlist().filter(c=>S.reqs[c.id]&&S.reqs[c.id].value&&S.reqs[c.id].complexity).map(c=>({c,r:S.reqs[c.id]}))
+    .sort((a,b)=>(b.r.value-b.r.complexity*0.5)-(a.r.value-a.r.complexity*0.5));
+  const missing=shortlist().length-items.length;
+  return `${exampleBanner()}
+  <div class="intro"><span class="label">Step 5</span><h2>Agent backlog</h2><p class="muted">Agents ranked by value against complexity. Quick wins are the natural candidates for a first pilot.${missing?` ${missing} shortlisted card${missing>1?"s are":" is"} missing scores and not shown.`:""}</p></div>
+  ${items.length?`<div class="mx-wrap"><div class="panel">${matrixSVG(items)}</div>
+    <div class="panel" style="display:grid;gap:10px;align-content:start"><span class="label">Ranked</span>
+    ${items.map((x,i)=>{const [q,qc]=quadrant(x.r);return `<div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:10px"><span style="min-width:0"><span class="mono muted">${i+1}.</span> <a href="#" data-open="${x.c.id}" style="color:var(--fg)">${esc(x.r.name)}</a></span><span class="quad ${qc}">${q}</span></div>`}).join("")}</div></div>
+  <div class="table-wrap"><table><thead><tr><th>#</th><th>Agent</th><th>Problem & users</th><th>Type</th><th>Knowledge & channels</th><th>Build path</th><th>Value</th><th>Complexity</th><th>Success measure</th></tr></thead><tbody>
+  ${items.map((x,i)=>{const plat=x.r.platform||suggestPlatform(x.c,x.r.complexity)[0];return `<tr><td class="num">${i+1}</td><td><b>${esc(x.r.name)}</b><div class="muted" style="font-size:.78rem">Card ${x.c.id}: ${esc(x.c.title)}</div></td><td>${esc(x.r.problem)}${x.r.users?`<div class="muted" style="font-size:.8rem">Users: ${esc(x.r.users)}</div>`:""}</td><td>${AGENT_TYPES[x.r.type]?.[0]||""}</td><td>${esc(x.r.knowledge.join(", "))}<div class="muted" style="font-size:.8rem">${esc(x.r.channels.join(", "))}</div></td><td>${esc(plat)}</td><td class="num">${x.r.value}</td><td class="num">${x.r.complexity}</td><td>${esc(x.r.success)}</td></tr>`}).join("")}
+  </tbody></table></div>`
+  :`<div class="empty">Score at least one shortlisted card for value and complexity to build the backlog.<div style="margin-top:10px"><button class="btn primary" data-go="capture">Go to requirements</button></div></div>`}
+  <div class="panel" style="display:grid;gap:12px"><div class="row" style="justify-content:space-between"><h3>Take it away</h3>
+    <div class="row"><button class="btn" data-act="copyMd">Copy summary</button><button class="btn" data-act="copyCsv">Copy as CSV</button><button class="btn" data-act="copyJson">Copy workshop file</button></div></div>
+    <p class="muted" style="font-size:.88rem">The summary pastes cleanly into Word, Loop, OneNote or an email. The CSV pastes into Excel. The workshop file lets you reload this session later or on another device.</p>
+    <details><summary style="cursor:pointer;font-weight:600">Load a saved workshop file</summary>
+      <div style="display:grid;gap:8px;margin-top:10px"><textarea id="importBox" class="copybox" placeholder="Paste a workshop file here"></textarea>
+      <div class="row"><button class="btn" data-act="import">Load workshop</button><label class="btn" for="importFile" style="cursor:pointer">Choose file…</label><input type="file" id="importFile" accept=".json,.txt,application/json" hidden></div></div></details>
+    <div id="copyFallback"></div>
+  </div>`;
+}
+function matrixSVG(items){
+  const W=520,H=400,L=46,T=16,R=14,B=44,pw=W-L-R,ph=H-T-B;
+  const x=v=>L+(v-0.5)/5*pw, y=v=>T+(5.5-v)/5*ph;
+  const seen={}; const pts=items.map((it,i)=>{const k=it.r.value+"-"+it.r.complexity;const n=seen[k]=(seen[k]||0)+1;const a=(n-1)*2.1;const off=n>1?11:0;return {i,cx:x(it.r.complexity)+Math.cos(a)*off,cy:y(it.r.value)+Math.sin(a)*off,it}});
+  return `<svg class="mx" viewBox="0 0 ${W} ${H}" role="img" aria-label="Value versus complexity matrix">
+   <rect x="${L}" y="${T}" width="${x(3.5)-L}" height="${y(3.5)-T}" fill="var(--good-soft)"/>
+   <rect x="${x(3.5)}" y="${T}" width="${L+pw-x(3.5)}" height="${y(3.5)-T}" fill="var(--accent-soft)"/>
+   <rect x="${L}" y="${y(3.5)}" width="${x(3.5)-L}" height="${T+ph-y(3.5)}" fill="var(--warn-soft)"/>
+   <rect x="${x(3.5)}" y="${y(3.5)}" width="${L+pw-x(3.5)}" height="${T+ph-y(3.5)}" fill="var(--surface-2)"/>
+   <text class="ql" x="${L+8}" y="${T+18}">Quick wins</text><text class="ql" x="${L+pw-8}" y="${T+18}" text-anchor="end">Strategic bets</text>
+   <text class="ql" x="${L+8}" y="${T+ph-8}">Fill-ins</text><text class="ql" x="${L+pw-8}" y="${T+ph-8}" text-anchor="end">Revisit later</text>
+   ${[1,2,3,4,5].map(v=>`<text x="${x(v)}" y="${T+ph+16}" text-anchor="middle" font-size="11">${v}</text><text x="${L-10}" y="${y(v)+4}" text-anchor="end" font-size="11">${v}</text>`).join("")}
+   <line x1="${L}" y1="${T+ph}" x2="${L+pw}" y2="${T+ph}" stroke="var(--line)"/><line x1="${L}" y1="${T}" x2="${L}" y2="${T+ph}" stroke="var(--line)"/>
+   <text x="${L+pw/2}" y="${H-6}" text-anchor="middle" font-size="12">Complexity →</text>
+   <text transform="translate(13 ${T+ph/2}) rotate(-90)" text-anchor="middle" font-size="12">Value →</text>
+   ${pts.map(p=>`<g style="cursor:pointer" data-open="${p.it.c.id}"><circle cx="${p.cx}" cy="${p.cy}" r="10" fill="var(${CAT[p.it.c.category]})" stroke="var(--surface)" stroke-width="2"><title>${esc(p.it.r.name)}</title></circle><text class="dot-l" x="${p.cx}" y="${p.cy+4}" text-anchor="middle" style="fill:#fff;font-size:10px">${p.i+1}</text></g>`).join("")}
+  </svg>`;
+}
+
+/* ---------- card sheet ---------- */
+let openId=null;
+function openSheet(id,focusReq){
+  openId=id; const c=byId[id]; const s=S.sort[id]||"";
+  const r=S.reqs[id]||blankReq(c);
+  const [sugg,why]=suggestPlatform(c,r.complexity||0);
+  const showReq=s==="p"||s==="m";
+  $("#sheetHost").innerHTML=`<div class="scrim" data-close></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(c.title)}" style="--cc:var(${CAT[c.category]})">
+   <div class="sheet-h"><div class="row"><button class="btn sm" data-nav="-1" aria-label="Previous card">‹ Prev</button><button class="btn sm" data-nav="1" aria-label="Next card">Next ›</button><span class="mono muted">No. ${c.id} of ${CARDS.length}</span></div><button class="btn sm" data-close>Close</button></div>
+   <div class="sheet-grid">
+     <div style="display:grid;gap:10px"><img src="cards/${String(id).padStart(2,"0")}.jpg" alt="Card ${c.id}: ${esc(c.title)}" loading="lazy"></div>
+     <div style="display:grid;gap:16px;min-width:0">
+       <div style="display:grid;gap:6px"><span class="label"><span class="cat-dot"></span>${esc(c.category)}</span><h2>${esc(c.title)}</h2><p>${esc(c.description)}</p></div>
+       <div class="ex"><span class="label">Examples</span>${c.examples.map(e=>`<div><b>${esc(e.sector)}.</b> ${esc(e.text)}</div>`).join("")}</div>
+       <div style="display:grid;gap:6px"><span class="label">Microsoft products on the card</span><div class="prods">${c.products.map(p=>`<span class="prod">${esc(p)}</span>`).join("")}</div></div>
+       <div style="display:grid;gap:6px"><span class="label">Does this matter to the customer?</span><div class="status-row">
+         <button class="st p" data-sset="p" aria-pressed="${s==="p"}">Priority</button><button class="st m" data-sset="m" aria-pressed="${s==="m"}">Maybe</button><button class="st x" data-sset="x" aria-pressed="${s==="x"}">Not now</button>${s?`<button class="btn sm ghost" data-sset="">Clear</button>`:""}</div></div>
+       ${showReq?reqForm(c,r,sugg,why):`<p class="muted" style="font-size:.88rem">Mark this card priority or maybe to capture its requirements.</p>`}
+     </div></div></div>`;
+  document.body.style.overflow="hidden";
+  if(focusReq){const el=$("#rq-name");el&&setTimeout(()=>el.scrollIntoView({block:"center"}),30)}
+}
+function reqForm(c,r,sugg,why){
+  const chipset=(field,opts)=>`<div class="chips">${opts.map(o=>`<button type="button" class="chip" data-rchip="${field}" data-v="${esc(o)}" aria-pressed="${r[field].includes(o)}">${esc(o)}</button>`).join("")}</div>`;
+  const scale=f=>`<div class="scale" role="group">${[1,2,3,4,5].map(n=>`<button type="button" data-rscale="${f}" data-v="${n}" aria-pressed="${r[f]===n}" aria-label="${f} ${n}">${n}</button>`).join("")}</div>`;
+  return `<div class="panel" style="display:grid;gap:14px" id="reqPanel">
+   <div class="row" style="justify-content:space-between"><h3>Agent requirement</h3>${reqDone(c.id)?`<span class="pill ok">Captured</span>`:`<span class="pill todo">Needs problem, value and complexity</span>`}</div>
+   <div class="field"><label for="rq-name">Agent name</label><input type="text" id="rq-name" data-r="name" value="${esc(r.name)}"></div>
+   <div class="field"><label for="rq-problem">Business problem</label><textarea id="rq-problem" data-r="problem" placeholder="What happens today, and what does it cost them?">${esc(r.problem)}</textarea></div>
+   <div class="field"><label for="rq-users">Who will use it</label><input type="text" id="rq-users" data-r="users" value="${esc(r.users)}" placeholder="Roles, teams, numbers of people"></div>
+   <div class="field"><span class="lab">Agent type</span><div class="chips">${Object.entries(AGENT_TYPES).map(([k,[l,d]])=>`<button type="button" class="chip" data-rtype="${k}" aria-pressed="${r.type===k}" title="${esc(d)}">${l}</button>`).join("")}</div><span class="hint">${esc(AGENT_TYPES[r.type][1])}</span></div>
+   <div class="field"><span class="lab">Knowledge and data sources</span>${chipset("knowledge",KNOWLEDGE)}</div>
+   <div class="field"><label for="rq-actions">Actions and integrations</label><textarea id="rq-actions" data-r="actions" placeholder="What should the agent do, and in which systems?">${esc(r.actions)}</textarea></div>
+   <div class="field"><span class="lab">Where people use it</span>${chipset("channels",CHANNELS)}</div>
+   <div class="field"><label for="rq-success">Success measure</label><input type="text" id="rq-success" data-r="success" value="${esc(r.success)}" placeholder="e.g. Reduce handling time by 20%"></div>
+   <div class="grid2"><div class="field"><span class="lab">Business value</span>${scale("value")}<span class="hint">1 nice to have · 5 critical</span></div>
+     <div class="field"><span class="lab">Complexity</span>${scale("complexity")}<span class="hint">1 out of the box · 5 major build</span></div></div>
+   <div class="suggest"><b>Suggested build path:</b> ${esc(sugg)}. <span class="muted">${esc(why)}</span></div>
+   <div class="field"><label for="rq-platform">Build path</label><select id="rq-platform" data-r="platform"><option value="">Use suggestion (${esc(sugg)})</option>${PLATFORMS.map(p=>`<option ${r.platform===p?"selected":""}>${esc(p)}</option>`).join("")}</select></div>
+   <div class="grid2"><div class="field"><label for="rq-sponsor">Sponsor / owner</label><input type="text" id="rq-sponsor" data-r="sponsor" value="${esc(r.sponsor)}"></div>
+     <div class="field"><label for="rq-notes">Notes and open questions</label><textarea id="rq-notes" data-r="notes" style="min-height:44px">${esc(r.notes)}</textarea></div></div>
+  </div>`;
+}
+function closeSheet(){openId=null;$("#sheetHost").innerHTML="";document.body.style.overflow="";render()}
+function ensureReq(id){if(!S.reqs[id]) S.reqs[id]=blankReq(byId[id]); return S.reqs[id]}
+function touched(){if(S.example){/* editing the example keeps it, but it's still flagged */} save(); renderChrome();}
+
+/* ---------- export ---------- */
+function backlogRows(){return shortlist().map(c=>({c,r:S.reqs[c.id]||blankReq(c)}))}
+function summaryMd(){
+  const c=S.customer; const rows=backlogRows().filter(x=>x.r.value&&x.r.complexity).sort((a,b)=>(b.r.value-b.r.complexity*0.5)-(a.r.value-a.r.complexity*0.5));
+  let t=`# Copilot agent discovery: ${c.name||"Customer"}\n\nDate: ${c.date||""}\nSector: ${c.sector||""}\nAttendees: ${c.attendees||""}\n\n## Business goals\n${c.goals||"-"}\n\n## What we heard\n`;
+  QUESTIONS.forEach(q=>{t+=`- ${q.title} ${(S.answers[q.key]||[]).join("; ")||"-"}\n`});
+  t+=`\n## Agent backlog (ranked)\n`;
+  rows.forEach((x,i)=>{const r=x.r;t+=`\n### ${i+1}. ${r.name} — ${quadrant(r)[0]}\n- Card: ${x.c.id} ${x.c.title} (${x.c.category})\n- Problem: ${r.problem}\n- Users: ${r.users}\n- Agent type: ${AGENT_TYPES[r.type][0]}\n- Knowledge: ${r.knowledge.join(", ")}\n- Channels: ${r.channels.join(", ")}\n- Actions: ${r.actions}\n- Success measure: ${r.success}\n- Value ${r.value}/5, complexity ${r.complexity}/5\n- Build path: ${r.platform||suggestPlatform(x.c,r.complexity)[0]}\n- Sponsor: ${r.sponsor}\n${r.notes?`- Notes: ${r.notes}\n`:""}`});
+  const un=backlogRows().filter(x=>!(x.r.value&&x.r.complexity));
+  if(un.length) t+=`\n## Shortlisted, not yet scored\n`+un.map(x=>`- ${x.c.title} (card ${x.c.id})`).join("\n")+"\n";
+  return t;
+}
+function summaryCsv(){
+  const h=["Rank","Agent","Card","Category","Status","Problem","Users","Type","Knowledge","Channels","Actions","Success measure","Value","Complexity","Quadrant","Build path","Sponsor","Notes"];
+  const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const rows=backlogRows().sort((a,b)=>((b.r.value||0)-(b.r.complexity||0)*0.5)-((a.r.value||0)-(a.r.complexity||0)*0.5));
+  return [h.map(q).join(","),...rows.map((x,i)=>{const r=x.r;return [i+1,r.name,x.c.id+" "+x.c.title,x.c.category,{p:"Priority",m:"Maybe"}[S.sort[x.c.id]],r.problem,r.users,AGENT_TYPES[r.type][0],r.knowledge.join("; "),r.channels.join("; "),r.actions,r.success,r.value||"",r.complexity||"",r.value&&r.complexity?quadrant(r)[0]:"",r.platform||suggestPlatform(x.c,r.complexity)[0],r.sponsor,r.notes].map(q).join(",")})].join("\n");
+}
+async function copy(text,label){
+  try{await navigator.clipboard.writeText(text);toast(label+" copied");$("#copyFallback").innerHTML="";}
+  catch(e){$("#copyFallback").innerHTML=`<p class="muted" style="font-size:.85rem">Your browser blocked the clipboard. Select the text below and copy it.</p><textarea class="copybox" readonly>${esc(text)}</textarea>`;const t=$("#copyFallback textarea");t.focus();t.select();}
+}
+function loadState(txt){
+  try{const o=JSON.parse(txt); if(!o||!o.customer||!o.sort) throw 0; o.example=false; o.answers=o.answers||{teams:[],pains:[],data:[]}; o.reqs=o.reqs||{}; S=o; save(); render(); toast("Workshop loaded");}
+  catch(e){toast("That isn't a workshop file. Copy it again from Backlog.")}
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-go],[data-act],[data-open],[data-set],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-rchip],[data-rscale],[data-rtype]");
+  if(!t) return;
+  if(t.dataset.go){go(t.dataset.go);return}
+  if(t.dataset.open){e.preventDefault();openSheet(+t.dataset.open,t.dataset.focus==="req");return}
+  if(t.hasAttribute("data-close")){closeSheet();return}
+  if(t.dataset.nav){const i=CARDS.findIndex(c=>c.id===openId);const n=CARDS[(i+ +t.dataset.nav+CARDS.length)%CARDS.length];openSheet(n.id);return}
+  if(t.dataset.set){const id=+t.dataset.id;S.sort[id]=S.sort[id]===t.dataset.set?undefined:t.dataset.set;if(!S.sort[id])delete S.sort[id];touched();render();return}
+  if(t.hasAttribute("data-sset")){const v=t.dataset.sset;if(v)S.sort[openId]=v;else delete S.sort[openId];if(v==="p"||v==="m")ensureReq(openId);touched();openSheet(openId,v==="p"||v==="m");return}
+  if(t.dataset.q){const arr=S.answers[t.dataset.q]=S.answers[t.dataset.q]||[];const v=t.dataset.opt;const i=arr.indexOf(v);i>=0?arr.splice(i,1):arr.push(v);touched();render();return}
+  if(t.dataset.cat){deckFilter.cat=t.dataset.cat;render();return}
+  if(t.dataset.rchip){const r=ensureReq(openId);const a=r[t.dataset.rchip];const i=a.indexOf(t.dataset.v);i>=0?a.splice(i,1):a.push(t.dataset.v);t.setAttribute("aria-pressed",i<0);touched();return}
+  if(t.dataset.rscale){const r=ensureReq(openId);r[t.dataset.rscale]=+t.dataset.v;touched();const y=$(".sheet").scrollTop;openSheet(openId);$(".sheet").scrollTop=y;return}
+  if(t.dataset.rtype){const r=ensureReq(openId);r.type=t.dataset.rtype;touched();const y=$(".sheet").scrollTop;openSheet(openId);$(".sheet").scrollTop=y;return}
+  const a=t.dataset.act;
+  if(a==="new"){S=blankState();deckFilter={cat:"All",q:"",only:"all"};go("workshop");toast("New workshop started");return}
+  if(a==="sortRecs"){deckFilter={cat:"All",q:"",only:"recs"};go("sort");return}
+  if(a==="copyMd") copy(summaryMd(),"Summary");
+  if(a==="copyCsv") copy(summaryCsv(),"CSV");
+  if(a==="copyJson") copy(JSON.stringify(S,null,1),"Workshop file");
+  if(a==="import") loadState($("#importBox").value);
+});
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.c){S.customer[t.dataset.c]=t.value;touched();return}
+  if(t.dataset.r && openId){ensureReq(openId)[t.dataset.r]=t.value;touched();return}
+  if(t.id==="deckQ"){deckFilter.q=t.value;const pos=t.selectionStart;render();const n=$("#deckQ");n.focus();n.setSelectionRange(pos,pos)}
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="deckOnly"){deckFilter.only=t.value;render()}
+  if(t.id==="rq-platform"){ensureReq(openId).platform=t.value;touched()}
+  if(t.id==="importFile"&&t.files[0]){const fr=new FileReader();fr.onload=()=>loadState(fr.result);fr.readAsText(t.files[0])}
+});
+document.addEventListener("keydown",e=>{if(openId==null)return;if(e.key==="Escape")closeSheet();
+  if((e.key==="ArrowRight"||e.key==="ArrowLeft")&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){const i=CARDS.findIndex(c=>c.id===openId);openSheet(CARDS[(i+(e.key==="ArrowRight"?1:-1)+CARDS.length)%CARDS.length].id)}});
+
+function render(){
+  renderChrome();
+  const V={workshop:vWorkshop,discover:vDiscover,sort:vSort,capture:vCapture,backlog:vBacklog}[view]||vWorkshop;
+  $("#main").innerHTML=`<section class="view">${V()}</section>`;
+}
+render();
+</script>
+
+</body>
+</html>
