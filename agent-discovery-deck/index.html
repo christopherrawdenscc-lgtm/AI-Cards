@@ -166,6 +166,26 @@ th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mu
 td.num{font-family:var(--f-mono);text-align:center}
 .quad{font-size:.75rem;font-weight:600;white-space:nowrap}
 .q-quick{color:var(--good)} .q-strat{color:var(--accent)} .q-fill{color:var(--warn)} .q-later{color:var(--muted)}
+
+/* deck cut, processes, solutions */
+.fams{display:grid;gap:8px}
+.fam{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--surface-2)}
+.fam-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.fam-n{font-weight:600;font-size:.9rem}
+.procs{display:grid;gap:10px}
+.proc{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface-2)}
+.proc .btn{justify-self:start}
+.card .home{font-size:.78rem;color:var(--good);font-weight:600}
+.card .home.none{color:var(--warn)}
+.card .acts.one{grid-template-columns:1fr}
+.sheet.narrow{width:min(780px,100%)}
+.stackcards{display:flex;flex-wrap:wrap;gap:5px}
+.tagc{font-size:.76rem;border:1px solid color-mix(in srgb,var(--cc) 40%,var(--line));background:color-mix(in srgb,var(--cc) 12%,var(--surface));border-radius:6px;padding:2px 7px}
+.tagc.pat{font-weight:600}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.tagrows{display:grid;gap:8px;font-size:.84rem}
+details>summary{cursor:pointer;font-weight:600;font-size:.88rem}
+.panel.decision{border-color:var(--accent)}
 .copybox{width:100%;min-height:160px;font-family:var(--f-mono);font-size:.78rem}
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:8px;z-index:60;font-size:.88rem}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}}
@@ -235,80 +255,135 @@ const QUESTIONS = [
   ["Call recordings and voice",[57,58,61,54]]]}
 ];
 const KNOWLEDGE = ["SharePoint / OneDrive","Teams chats & channels","Outlook / email","Dataverse / Dynamics 365","ERP / finance system","CRM (non-Dynamics)","Line-of-business database","Public website","Scanned documents / PDFs","Third-party SaaS (ServiceNow, Salesforce…)"];
-const CHANNELS = ["Microsoft 365 Copilot","Microsoft Teams","SharePoint site","Public website","Mobile / other app","Runs in background"];
-const AGENT_TYPES = {
- retrieval:["Retrieval","Answers questions from knowledge sources"],
- task:["Task","Takes actions or completes a workflow when asked"],
- autonomous:["Autonomous","Triggered by events and works in the background"]};
-const PLATFORMS = ["Microsoft 365 Copilot (built-in / declarative agent)","Copilot Studio agent","Copilot Studio + Azure AI Foundry","Azure AI Foundry (pro-code)","Dynamics 365 Copilot & agents","Microsoft Security Copilot","GitHub Copilot","Power Platform (Power Automate / AI Builder)"];
+const DATA_CLEAN = ["Clean and ready","Needs tidying","Unknown"];
+const RISK_LEVELS = ["Low","Medium","High"];
+const FUNDING = ["ECIF","MCI","CPOR","None yet"];
+const DECK_TARGET = 25;
+/* Delivery tiers, simplest first. A card's tier is the simplest one its product tags support. */
+const TIERS = ["Microsoft 365 Copilot (out of the box)","Copilot Studio agent","Power Platform / AI Builder","Custom build in Azure AI Foundry"];
+const COPILOT_LED = /Microsoft 365 Copilot|Copilot Studio|Agents SDK|Power Platform/;
 
-function suggestPlatform(c, complexity){
+function cardTier(c){
   const p = c.products.join("|");
-  if(/Security Copilot|Sentinel/.test(p)) return [PLATFORMS[5],"The card's product set points to the Security Copilot stack."];
-  if(/GitHub/.test(p) && !/Copilot Studio/.test(p)) return [PLATFORMS[6],"Developer-facing scenario built on GitHub."];
-  if(/Copilot Studio|Agents SDK|Microsoft 365 Copilot$|Microsoft 365 Copilot\|/.test(p+"|") || /Agent Service/.test(p)){
-    if(complexity>=4 && /Foundry|Agents SDK/.test(p)) return [PLATFORMS[2],"Start low-code in Copilot Studio and add Foundry models or tools for the heavy lifting."];
-    if(c.category==="Agentic") return [PLATFORMS[1],"Agentic scenario: Copilot Studio with autonomous triggers, grow into Foundry Agent Service if needed."];
-    return [PLATFORMS[1],"Fits a low-code agent published to Microsoft 365 Copilot and Teams."];
-  }
-  if(/Dynamics 365|Copilot for Sales|Copilot for Service/.test(p)) return [PLATFORMS[4],"Sits on Dynamics 365 data; use its built-in Copilot and agents first."];
-  if(/Power Automate|AI Builder|Power Apps|Power Pages/.test(p)) return [PLATFORMS[7],"Process automation with Power Platform, surfaced through a Copilot Studio agent."];
-  return [PLATFORMS[3],"Needs custom models (vision, speech, ML or IoT). Plan a pro-code build in Azure AI Foundry."];
+  if(/Microsoft 365 Copilot/.test(p)) return 0;
+  if(/Copilot Studio|Agents SDK/.test(p)) return 1;
+  if(/Power Platform/.test(p)) return 2;
+  return 3;
 }
-function guessType(c){
-  if(["Information Management","Communication","Text processing","Speech recognition"].includes(c.category)) return "retrieval";
-  if(["Task automation","Content creation","Visual perception"].includes(c.category)) return "task";
-  return "autonomous";
+function stackCards(s){return [s.pattern,...s.cards].map(id=>byId[id]).filter(Boolean)}
+function suggestTier(s){
+  const cs = stackCards(s);
+  if(!cs.length) return [0,"Add cards to the stack to get a suggestion."];
+  const t = Math.max(...cs.map(cardTier));
+  if(t===0) return [0,"Every card in the stack is tagged Microsoft 365 Copilot, so start out of the box."];
+  return [t,"The simplest tier that covers every card. Needed for: "+cs.filter(c=>cardTier(c)===t).map(c=>c.id+" "+c.title).join(", ")+"."];
 }
-function blankReq(c){
-  return {name:c.title.replace(/^./,m=>m.toUpperCase())+" agent",problem:"",users:"",type:guessType(c),knowledge:[],channels:["Microsoft 365 Copilot","Microsoft Teams"],actions:"",success:"",value:0,complexity:0,platform:"",sponsor:"",notes:""};
+function tierOf(s){return s.tier||TIERS[suggestTier(s)[0]]}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const f=v=>String(v??"").trim();
+function blankStack(){
+  return {id:uid(),name:"",proc:"",pattern:null,cards:[],who:"",trigger:"",knowledge:[],dataNote:"",dataClean:"",action:"",hitl:"",measure:"",volume:"",risk:"",riskLevel:"",value:0,feas:0,tier:"",sponsor:"",notes:""};
 }
+/* The seven qualifying lines: a solution is qualified once each has an answer */
+const QUAL = [
+ ["Who",s=>f(s.who)],["Trigger",s=>f(s.trigger)],["Data",s=>(s.knowledge.length||f(s.dataNote))&&s.dataClean],["Action",s=>f(s.action)],
+ ["Human-in-the-loop",s=>f(s.hitl)],["Measure",s=>f(s.measure)],["Risk",s=>f(s.risk)||s.riskLevel]];
+function qualCount(s){return QUAL.filter(([,ok])=>ok(s)).length}
+function stackScored(s){return !!(s.value&&s.feas)}
+function stackReady(s){return qualCount(s)===QUAL.length&&stackScored(s)}
+function stackName(s){return f(s.name)||"Untitled solution"}
 
 /* ---------- state ---------- */
-const STORE_KEY="add-workshop-v1";
+const STORE_KEY="add-workshop-v2", OLD_KEY="add-workshop-v1";
+function blankState(){return {example:false,customer:{name:"",sector:"",date:new Date().toISOString().slice(0,10),attendees:"",goals:""},answers:{teams:[],pains:[],data:[]},
+  cut:[],processes:[],sort:{},where:{},stacks:[],pilot:{stack:"",measure:"",owner:"",nextDate:"",nextStep:"",funding:"",fundingNote:""}}}
 function exampleState(){
-  const s={example:true,customer:{name:"Northwell Borough Council",sector:"Local government",date:"2026-10-14",attendees:"Head of Customer Services, Revenues & Benefits lead, IT Business Partner",goals:"Cut avoidable contact into the call centre. Free up officers from manual case admin. Build confidence in Copilot ahead of a wider rollout."},
-   answers:{teams:["Customer service / contact centre","Public services & estates","Finance"],pains:["Same questions asked again and again","Manual admin and re-keying","People can't find information"],data:["SharePoint, OneDrive, Teams","Scanned forms and PDFs"]},
-   sort:{53:"p",3:"p",38:"p",82:"m",49:"m",10:"m",18:"x",55:"x"},reqs:{}};
-  s.reqs[53]=Object.assign(blankReq(byId[53]),{name:"Resident enquiries agent",problem:"Residents call about bin collections, council tax and parking permits. Most answers are already on the website but hard to find.",users:"Residents on the website; contact centre advisers in Teams",type:"retrieval",knowledge:["Public website","SharePoint / OneDrive"],channels:["Public website","Microsoft Teams"],actions:"Look up collection day by postcode. Hand off to a live adviser.",success:"Deflect 15% of calls on the top five enquiry types",value:5,complexity:2,sponsor:"Head of Customer Services"});
-  s.reqs[3]=Object.assign(blankReq(byId[3]),{name:"Case meeting assistant",problem:"Officers spend an hour after each case review writing up actions and chasing follow-ups.",users:"Revenues & Benefits officers",type:"task",knowledge:["Teams chats & channels","Outlook / email"],channels:["Microsoft 365 Copilot","Microsoft Teams"],actions:"Summarise meeting, create Planner tasks, draft follow-up email",success:"Save 3 hours per officer per week",value:4,complexity:2,sponsor:"Revenues & Benefits lead"});
-  s.reqs[38]=Object.assign(blankReq(byId[38]),{name:"Benefit form intake agent",problem:"Paper and PDF claim forms are keyed in by hand, with a 6-day backlog.",users:"Benefits processing team",type:"autonomous",knowledge:["Scanned documents / PDFs","Line-of-business database"],channels:["Runs in background","Microsoft Teams"],actions:"Extract fields, validate, create case record, flag missing evidence",success:"Backlog under 2 days",value:5,complexity:4,sponsor:"IT Business Partner"});
+  const s=blankState(); s.example=true;
+  s.customer={name:"Northwell Borough Council",sector:"Local government",date:"2026-10-14",attendees:"Head of Customer Services, Revenues & Benefits lead, IT Business Partner",goals:"Cut avoidable contact into the call centre. Free up officers from manual case admin. Build confidence in Copilot ahead of a wider rollout."};
+  s.answers={teams:["Customer service / contact centre","Public services & estates","Finance"],pains:["Same questions asked again and again","Manual admin and re-keying","People can't find information"],data:["SharePoint, OneDrive, Teams","Scanned forms and PDFs"]};
+  const keep=[1,3,7,8,9,10,11,13,24,25,28,38,40,47,48,49,50,51,53,54,56,57,69,79,82];
+  s.cut=CARDS.map(c=>c.id).filter(id=>!keep.includes(id));
+  s.processes=[
+   {id:"p1",name:"Resident enquiries (bins, council tax, parking)",owner:"Head of Customer Services",team:"Contact centre",volume:"About 4,000 calls a week"},
+   {id:"p2",name:"Case review write-ups",owner:"Revenues & Benefits lead",team:"Revenues & Benefits officers",volume:"60 case reviews a week"},
+   {id:"p3",name:"Benefit claim form intake",owner:"Revenues & Benefits lead",team:"Benefits processing",volume:"900 forms a month, 6-day backlog"},
+   {id:"p4",name:"Planning objections",owner:"IT Business Partner (for Planning)",team:"Planning",volume:"40 objections a week"}];
+  s.sort={8:"p",9:"p",53:"p",56:"p",3:"p",10:"p",49:"p",28:"p",1:"p",38:"p",25:"p",50:"m",82:"m",57:"x",24:"x"};
+  [8,9,53,56].forEach(id=>s.where[id]={proc:"p1",detail:""});
+  [3,10,49,28].forEach(id=>s.where[id]={proc:"p2",detail:""});
+  [1,38,25].forEach(id=>s.where[id]={proc:"p3",detail:""});
+  s.stacks=[
+   Object.assign(blankStack(),{id:"s1",name:"Front-door enquiry agent",proc:"p1",pattern:8,cards:[9,53,56],who:"Residents on the website; contact centre advisers in Teams",trigger:"A resident asks a question on the website or by phone",knowledge:["Public website","SharePoint / OneDrive"],dataClean:"Needs tidying",action:"Answer from published guidance, look up collection day by postcode, hand off to a live adviser",hitl:"Adviser takes over anything about an individual account",measure:"Deflect 15% of calls on the top five enquiry types",volume:"About 4,000 calls a week",risk:"Public-facing; no personal data unless the resident signs in",riskLevel:"Low",value:5,feas:4,sponsor:"Head of Customer Services"}),
+   Object.assign(blankStack(),{id:"s2",name:"Casework assistant",proc:"p2",pattern:3,cards:[10,49,28],who:"Revenues & Benefits officers",trigger:"A case review meeting ends",knowledge:["Teams chats & channels","Outlook / email"],dataClean:"Clean and ready",action:"Summarise the meeting, create Planner tasks, draft the follow-up email",hitl:"Officer checks the summary and sends the email",measure:"Save 3 hours per officer per week",volume:"60 case reviews a week",risk:"Case notes hold personal data; stays inside Microsoft 365",riskLevel:"Medium",value:4,feas:5,sponsor:"Revenues & Benefits lead"}),
+   Object.assign(blankStack(),{id:"s3",name:"Benefit form intake and routing",proc:"p3",pattern:1,cards:[38,25],who:"Benefits processing team",trigger:"A paper or PDF claim form arrives",knowledge:["Scanned documents / PDFs","Line-of-business database"],dataClean:"Needs tidying",action:"Extract fields, validate, create the case record, flag missing evidence",hitl:"Processor approves every case before it is created",measure:"Backlog under 2 days",volume:"900 forms a month",risk:"Sensitive financial and health data; writes to the benefits system",riskLevel:"High",value:5,feas:2,sponsor:"IT Business Partner"})];
+  s.pilot={stack:"s1",measure:"Deflect 15% of calls on the top five enquiry types within 8 weeks",owner:"Head of Customer Services",nextDate:"2026-10-28",nextStep:"Scoping session with the contact centre leads",funding:"ECIF",fundingNote:""};
   return s;
 }
-function blankState(){return {example:false,customer:{name:"",sector:"",date:new Date().toISOString().slice(0,10),attendees:"",goals:""},answers:{teams:[],pains:[],data:[]},sort:{},reqs:{}}}
+/* Fills gaps in a saved workshop, and turns the older one-card requirements into single-card solutions */
+function normalize(o){
+  const b=blankState();
+  o.customer=Object.assign(b.customer,o.customer||{});
+  o.answers=Object.assign(b.answers,o.answers||{});
+  o.sort=o.sort||{}; o.where=o.where||{};
+  o.cut=Array.isArray(o.cut)?o.cut:[]; o.processes=Array.isArray(o.processes)?o.processes:[];
+  o.pilot=Object.assign(b.pilot,o.pilot||{});
+  if(!Array.isArray(o.stacks)){
+    o.stacks=[];
+    Object.keys(o.reqs||{}).forEach(k=>{const r=o.reqs[k], c=byId[k]; if(!c||!r||!(o.sort[k]==="p"||o.sort[k]==="m")||!(r.problem||r.value)) return;
+      const agentic=c.category==="Agentic";
+      o.stacks.push(Object.assign(blankStack(),{name:r.name||"",pattern:agentic?c.id:null,cards:agentic?[]:[c.id],who:r.users||"",knowledge:r.knowledge||[],action:r.actions||"",measure:r.success||"",
+        value:r.value||0,feas:r.complexity?6-r.complexity:0,sponsor:r.sponsor||"",notes:[r.problem,r.notes].filter(Boolean).join("\n")}))});
+  }
+  o.stacks=o.stacks.map(s=>Object.assign(blankStack(),s));
+  delete o.reqs;
+  return o;
+}
 let S;
-try{const raw=localStorage.getItem(STORE_KEY); S=raw?JSON.parse(raw):exampleState();}catch(e){S=exampleState();}
-let view="workshop", deckFilter={cat:"All",q:"",only:"all"};
+try{
+  const cur=localStorage.getItem(STORE_KEY), old=cur?null:localStorage.getItem(OLD_KEY);
+  if(cur) S=normalize(JSON.parse(cur));
+  else if(old){const o=JSON.parse(old); S=o.example?exampleState():normalize(o);}
+  else S=exampleState();
+}catch(e){S=exampleState();}
+let view="workshop", deckFilter={cat:"All",q:"",only:"all"}, famOpen=new Set();
 try{view=localStorage.getItem(STORE_KEY+"-view")||"workshop"}catch(e){}
 function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(S));localStorage.setItem(STORE_KEY+"-view",view)}catch(e){}}
 
 /* ---------- helpers ---------- */
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-function toast(t){const h=$("#toastHost");h.innerHTML=`<div class="toast" role="status">${esc(t)}</div>`;clearTimeout(toast._t);toast._t=setTimeout(()=>h.innerHTML="",1800)}
-function shortlist(){return CARDS.filter(c=>S.sort[c.id]==="p"||S.sort[c.id]==="m")}
-function reqDone(id){const r=S.reqs[id];return r&&r.problem&&r.value&&r.complexity}
-function quadrant(r){const hv=r.value>=3.5||r.value>=4, lc=r.complexity<=3;
-  if(r.value>=4&&r.complexity<=3) return ["Quick win","q-quick"];
-  if(r.value>=4) return ["Strategic bet","q-strat"];
-  if(r.complexity<=3) return ["Fill-in","q-fill"];
-  return ["Revisit later","q-later"];}
+function toast(t){const h=$("#toastHost");h.innerHTML=`<div class="toast" role="status">${esc(t)}</div>`;clearTimeout(toast._t);toast._t=setTimeout(()=>h.innerHTML="",2600)}
+const SORT_LABEL={p:"Now",m:"Later",x:"Not for us"};
+function cutSet(){return new Set(S.cut)}
+function inDeck(){const cs=cutSet();return CARDS.filter(c=>!cs.has(c.id))}
+function procById(id){return S.processes.find(p=>p.id===id)}
+function procLabel(p){return f(p.name)||"Unnamed process"}
+function hasWhere(id){const w=S.where[id];return !!(w&&((w.proc&&procById(w.proc))||f(w.detail)))}
+function whereText(id){const w=S.where[id]||{};const p=w.proc&&procById(w.proc);return [p&&procLabel(p),f(w.detail)].filter(Boolean).join(" · ")}
+function nowCards(){return CARDS.filter(c=>S.sort[c.id]==="p")}
+function stackById(id){return S.stacks.find(s=>s.id===id)}
+function stacksWith(id){return S.stacks.filter(s=>s.pattern===id||s.cards.includes(id))}
+function quadrant(s){
+  if(s.value>=4&&s.feas>=4) return ["Pilot candidate","q-quick"];
+  if(s.value>=4) return ["Strategic bet","q-strat"];
+  if(s.feas>=4) return ["Fill-in","q-fill"];
+  return ["Not yet","q-later"];}
+function scoredStacks(){return S.stacks.filter(stackScored).sort((a,b)=>((b.value+b.feas)-(a.value+a.feas))||b.value-a.value)}
 function recommendations(){
-  const score={},why={};
+  const score={},why={},cs=cutSet();
   QUESTIONS.forEach(q=>q.opts.forEach(([lab,ids])=>{ if(!(S.answers[q.key]||[]).includes(lab)) return;
-    ids.forEach((id,i)=>{score[id]=(score[id]||0)+1+(ids.length-i)*0.04;(why[id]=why[id]||[]).push(lab)})}));
+    ids.forEach((id,i)=>{if(cs.has(id)) return;score[id]=(score[id]||0)+1+(ids.length-i)*0.04;(why[id]=why[id]||[]).push(lab)})}));
   Object.keys(score).forEach(id=>{const c=byId[id]; if(/Copilot Studio|Microsoft 365 Copilot|Agent Service|Agents SDK/.test(c.products.join())) score[id]+=0.3;});
   return Object.keys(score).map(Number).sort((a,b)=>score[b]-score[a]).map(id=>({id,score:score[id],why:why[id]}));
 }
 function recSet(){return new Set(recommendations().slice(0,15).map(r=>r.id))}
 
 /* ---------- chrome ---------- */
-const STEPS=[["workshop","Workshop"],["discover","Discover"],["sort","Card sort"],["capture","Requirements"],["backlog","Backlog"]];
+const STEPS=[["workshop","Prepare"],["discover","Discover"],["sort","Card sort"],["solutions","Solutions"],["pilot","Pilot"]];
 function renderChrome(){
   $("#steps").innerHTML=STEPS.map(([k,l],i)=>`<button type="button" data-step="${k}" ${view===k?'aria-current="step"':""}><span class="n">${i+1}</span>${l}</button>`).join("");
   $("#hdrCust").textContent=S.customer.name?("· "+S.customer.name+(S.example?" (example)":"")):"";
-  const v=Object.values(S.sort);
-  $("#tally").innerHTML=`<span title="Priority">${v.filter(x=>x==="p").length} priority</span><span title="Maybe">${v.filter(x=>x==="m").length} maybe</span><span title="Requirements captured">${shortlist().filter(c=>reqDone(c.id)).length}/${shortlist().length} captured</span>`;
+  $("#tally").innerHTML=`<span title="Cards left in the deck">${CARDS.length-cutSet().size} in deck</span><span title="Cards sorted into Now">${nowCards().length} now</span><span title="Solutions qualified and scored">${S.stacks.filter(stackReady).length}/${S.stacks.length} qualified</span>`;
 }
 $("#steps").addEventListener("click",e=>{const b=e.target.closest("[data-step]");if(b){go(b.dataset.step)}});
 function go(v){view=v;save();render();window.scrollTo({top:0})}
@@ -317,9 +392,9 @@ function exampleBanner(){return S.example?`<div class="banner"><span><b>Example 
 
 /* ---------- views ---------- */
 function vWorkshop(){
-  const c=S.customer;
+  const c=S.customer, cs=cutSet(), n=CARDS.length-cs.size;
   return `${exampleBanner()}
-  <div class="intro"><span class="label">Step 1</span><h2>Set up the workshop</h2><p class="muted">Record who you are working with and what they want from AI. Everything you enter is saved in this browser as you go; use Backlog to copy or export it.</p></div>
+  <div class="intro"><span class="label">Step 1 · before the meeting</span><h2>Prepare the workshop</h2><p class="muted">Record who you are working with, then cut the deck down to the cards that fit their world. Everything you enter is saved in this browser as you go; use Pilot to copy or export it.</p></div>
   <div class="panel grid2">
     <div class="field"><label for="cName">Customer</label><input type="text" id="cName" data-c="name" value="${esc(c.name)}" placeholder="Organisation name"></div>
     <div class="field"><label for="cSector">Sector</label><input type="text" id="cSector" data-c="sector" value="${esc(c.sector)}" placeholder="e.g. Local government, Retail"></div>
@@ -327,230 +402,362 @@ function vWorkshop(){
     <div class="field"><label for="cAtt">Attendees</label><input type="text" id="cAtt" data-c="attendees" value="${esc(c.attendees)}" placeholder="Names and roles"></div>
     <div class="field" style="grid-column:1/-1"><label for="cGoals">Business goals for AI</label><textarea id="cGoals" data-c="goals" placeholder="What outcomes would make this worthwhile?">${esc(c.goals)}</textarea></div>
   </div>
-  <div class="row"><button class="btn primary" data-go="discover">Next: discovery questions</button><button class="btn ghost" data-go="sort">Skip to the card sort</button></div>
+  <div class="panel" style="display:grid;gap:14px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start"><div style="display:grid;gap:4px;max-width:70ch"><h3>Cut the deck</h3><p class="muted" style="font-size:.88rem">Take out anything that doesn't fit the customer's world. A short deck keeps people focused and stops the session turning into a tour of the cards. Aim for about ${DECK_TARGET}.</p></div>
+      <span class="pill ${n<=DECK_TARGET+5?"ok":"todo"}">${n} of ${CARDS.length} cards in the deck</span></div>
+    <div class="row"><button class="btn sm" data-act="cutCopilot">Keep Copilot-led cards only</button><button class="btn sm ghost" data-act="cutReset">Put all ${CARDS.length} back</button><span class="hint muted" style="font-size:.8rem">Copilot-led keeps cards tagged Microsoft 365 Copilot, Copilot Studio, Agents SDK or Power Platform.</span></div>
+    <div class="fams">${Object.keys(CAT).map(cat=>{const cards=CARDS.filter(x=>x.category===cat), inn=cards.filter(x=>!cs.has(x.id)).length, open=famOpen.has(cat);
+      return `<div class="fam" style="--cc:var(${CAT[cat]})"><div class="fam-h"><span class="fam-n"><span class="cat-dot"></span>${esc(cat)} <span class="mono muted">${inn}/${cards.length}</span></span>
+        <span class="row"><button class="btn sm ghost" data-famopen="${esc(cat)}" aria-expanded="${open}">${open?"Hide cards":"Show cards"}</button><button class="btn sm" data-fam="${esc(cat)}">${inn?"Cut family":"Put back"}</button></span></div>
+        ${open?`<div class="chips">${cards.map(x=>`<button type="button" class="chip" data-cutcard="${x.id}" aria-pressed="${!cs.has(x.id)}" title="${esc(x.description)}">${x.id} ${esc(x.title)}</button>`).join("")}</div>`:""}</div>`}).join("")}</div>
+  </div>
+  <div class="row"><button class="btn primary" data-go="discover">Next: start with their pain</button><button class="btn ghost" data-go="sort">Skip to the card sort</button></div>
   <div class="panel"><span class="label">How the session runs</span>
    <div class="grid2" style="margin-top:10px">
-    <p><b>Discover.</b> Ask three questions about teams, pain points and data. The deck ranks the cards that fit.</p>
-    <p><b>Card sort.</b> Walk the ${CARDS.length} cards with the customer and mark each one priority, maybe or not now.</p>
-    <p><b>Requirements.</b> For every shortlisted card, capture the problem, users, data, actions and how success is measured.</p>
-    <p><b>Backlog.</b> Score value against complexity, see the suggested build path and copy the summary out.</p>
+    <p><b>Discover.</b> Ten minutes before any card comes out. Write down 4–6 real processes, each with an owner.</p>
+    <p><b>Card sort.</b> The customer sorts the cut-down deck into Now, Later and Not for us. A card only goes in Now if someone can say where it would happen.</p>
+    <p><b>Solutions.</b> Combine one Agentic card with the capability cards that do the work, then qualify each stack and pick the simplest delivery tier.</p>
+    <p><b>Pilot.</b> Plot value against feasibility and leave with one pilot, a success measure and the next meeting.</p>
    </div></div>`;
 }
 function vDiscover(){
-  const recs=recommendations().slice(0,15);
+  const recs=recommendations().slice(0,15), ps=S.processes;
   return `${exampleBanner()}
-  <div class="intro"><span class="label">Step 2</span><h2>Discovery questions</h2><p class="muted">Tag what you hear. The deck ranks the cards that match, so you open the card sort with the most relevant ones first.</p></div>
+  <div class="intro"><span class="label">Step 2 · about 10 minutes</span><h2>Start with their pain, not the cards</h2><p class="muted">Ask what eats their team's time, where work waits on a person, and what they'd fix tomorrow if they could. The cards are there to test these problems, not to come up with problems for them.</p></div>
+  <div class="panel" style="display:grid;gap:12px">
+    <div class="row" style="justify-content:space-between"><h3>Their processes</h3><span class="pill ${ps.length>=4?"ok":"todo"}">${ps.length} written down · aim for 4–6, each with an owner</span></div>
+    ${ps.length?`<div class="procs">${ps.map((p,i)=>`<div class="proc">
+      <div class="field"><label for="pn-${p.id}">Process ${i+1}</label><input type="text" id="pn-${p.id}" data-p="name" data-pid="${p.id}" value="${esc(p.name)}" placeholder="e.g. Planning objections"></div>
+      <div class="field"><label for="po-${p.id}">Owner</label><input type="text" id="po-${p.id}" data-p="owner" data-pid="${p.id}" value="${esc(p.owner)}" placeholder="Who owns it"></div>
+      <div class="field"><label for="pt-${p.id}">Team</label><input type="text" id="pt-${p.id}" data-p="team" data-pid="${p.id}" value="${esc(p.team)}" placeholder="Who does the work"></div>
+      <div class="field"><label for="pv-${p.id}">Volume</label><input type="text" id="pv-${p.id}" data-p="volume" data-pid="${p.id}" value="${esc(p.volume)}" placeholder="e.g. 40 a week"></div>
+      <button class="btn sm ghost" data-delproc="${p.id}" aria-label="Remove process ${i+1}">Remove</button></div>`).join("")}</div>`
+    :`<div class="empty">No processes yet. Add the first one as soon as you hear it.</div>`}
+    <div class="row"><button class="btn primary" data-act="addProc">Add a process</button></div>
+  </div>
   <div class="qgrid">${QUESTIONS.map(q=>`<div class="panel q"><h3>${q.title}</h3><p class="muted">${q.help}</p>
    <div class="chips">${q.opts.map(([lab])=>`<button type="button" class="chip" data-q="${q.key}" data-opt="${esc(lab)}" aria-pressed="${(S.answers[q.key]||[]).includes(lab)}">${esc(lab)}</button>`).join("")}</div></div>`).join("")}</div>
-  <div class="row" style="justify-content:space-between"><h3>Suggested cards to start with</h3>${recs.length?`<button class="btn primary" data-act="sortRecs">Sort these cards</button>`:""}</div>
+  <div class="row" style="justify-content:space-between"><h3>Suggested cards to start with</h3>${recs.length?`<button class="btn primary" data-act="sortRecs">Sort these cards</button>`:`<button class="btn" data-go="sort">Go to the card sort</button>`}</div>
   ${recs.length?`<div class="recs">${recs.map(r=>{const c=byId[r.id];return `<div class="rec" style="--cc:var(${CAT[c.category]})">
     <div class="row" style="justify-content:space-between"><span class="label"><span class="cat-dot"></span>${esc(c.category)}</span><span class="score">No. ${c.id}</span></div>
     <h3>${esc(c.title)}</h3><p class="muted" style="font-size:.86rem">${esc(c.description)}</p>
     <div class="why">Matches: ${r.why.map(esc).join(" · ")}</div>
     <div class="row"><button class="btn sm" data-open="${c.id}">Open card</button>${statusMini(c.id)}</div></div>`}).join("")}</div>`
-  :`<div class="empty">Tag at least one answer above to see suggested cards.</div>`}`;
+  :`<div class="empty">Tag at least one answer above to see suggested cards from the cut-down deck.</div>`}`;
 }
-function statusMini(id){const s=S.sort[id];return s?`<span class="pill ${s==="x"?"":s}">${{p:"Priority",m:"Maybe",x:"Not now"}[s]}</span>`:""}
+function statusMini(id){const s=S.sort[id];return s?`<span class="pill ${s==="x"?"":s}">${SORT_LABEL[s]}</span>`:""}
 function vSort(){
   const cats=["All",...Object.keys(CAT)];
-  const recs=recSet();
-  let list=CARDS.filter(c=>(deckFilter.cat==="All"||c.category===deckFilter.cat));
+  const recs=recSet(), cs=cutSet(), cutView=deckFilter.only==="cut";
+  let list=CARDS.filter(c=>cs.has(c.id)===cutView&&(deckFilter.cat==="All"||c.category===deckFilter.cat));
   const q=deckFilter.q.trim().toLowerCase();
   if(q) list=list.filter(c=>(c.title+" "+c.description+" "+c.category+" "+c.examples.map(e=>e.sector+" "+e.text).join(" ")+" "+c.products.join(" ")).toLowerCase().includes(q));
   if(deckFilter.only==="recs") list=list.filter(c=>recs.has(c.id));
   if(deckFilter.only==="unsorted") list=list.filter(c=>!S.sort[c.id]);
-  if(deckFilter.only==="short") list=list.filter(c=>S.sort[c.id]==="p"||S.sort[c.id]==="m");
-  if(recs.size && deckFilter.only!=="recs") list=[...list].sort((a,b)=>(recs.has(b.id)-recs.has(a.id))||a.id-b.id);
-  const sorted=Object.keys(S.sort).length;
+  if(deckFilter.only==="now") list=list.filter(c=>S.sort[c.id]==="p");
+  if(deckFilter.only==="later") list=list.filter(c=>S.sort[c.id]==="m");
+  if(recs.size && deckFilter.only!=="recs" && !cutView) list=[...list].sort((a,b)=>(recs.has(b.id)-recs.has(a.id))||a.id-b.id);
+  const deck=inDeck(), sorted=deck.filter(c=>S.sort[c.id]).length;
   return `${exampleBanner()}
-  <div class="intro"><span class="label">Step 3 · ${sorted} of ${CARDS.length} cards sorted</span><h2>Card sort</h2><p class="muted">Open a card to read the examples together, then mark it. Priority and maybe cards move on to requirements capture.</p></div>
+  <div class="intro"><span class="label">Step 3 · about 15 minutes · ${sorted} of ${deck.length} cards sorted</span><h2>Card sort: Now, Later, Not for us</h2><p class="muted">Hand over the cut-down deck and have them sort it. A card only goes in Now if someone can say where it would happen: a named process, team and volume. Listen for disagreement between stakeholders, because that's often where the real requirement is.</p></div>
   <div class="toolbar">
     <input type="text" id="deckQ" placeholder="Search cards, sectors or products" value="${esc(deckFilter.q)}" aria-label="Search cards">
     <select id="deckOnly" aria-label="Show" style="width:auto">
-      ${[["all","All cards"],["recs","Suggested for this customer"],["unsorted","Not yet sorted"],["short","Shortlisted"]].map(([k,l])=>`<option value="${k}" ${deckFilter.only===k?"selected":""}>${l}</option>`).join("")}
+      ${[["all","The cut-down deck"],["recs","Suggested for this customer"],["unsorted","Not yet sorted"],["now","Now"],["later","Later"],["cut","Cut from the deck"]].map(([k,l])=>`<option value="${k}" ${deckFilter.only===k?"selected":""}>${l}</option>`).join("")}
     </select>
+    <button class="btn primary" data-go="solutions">Next: build solutions</button>
   </div>
   <div class="cats">${cats.map(c=>`<button type="button" class="chip" data-cat="${esc(c)}" aria-pressed="${deckFilter.cat===c}" style="--cc:var(${CAT[c]||"--muted"})">${c==="All"?"":`<span class="cat-dot"></span>`}${esc(c)}</button>`).join("")}</div>
-  ${list.length?`<div class="deck">${list.map(c=>cardHTML(c,recs.has(c.id))).join("")}</div>`:`<div class="empty">No cards match. Clear the search or pick another category.</div>`}`;
+  ${list.length?`<div class="deck">${list.map(c=>cardHTML(c,recs.has(c.id)&&!cutView,cutView)).join("")}</div>`:`<div class="empty">${cutView?"No cut cards match.":"No cards match. Clear the search, pick another family, or put cards back in the deck in Prepare."}</div>`}`;
 }
-function cardHTML(c,isRec){
+function cardHTML(c,isRec,cutView){
   const s=S.sort[c.id]||"";
-  return `<article class="card ${s?"st-"+s:""}" style="--cc:var(${CAT[c.category]})">
+  return `<article class="card ${s&&!cutView?"st-"+s:""}" style="--cc:var(${CAT[c.category]})">
     <div class="tab"><span>${esc(c.category)}</span><span class="no">No. ${c.id}</span></div>
-    <button type="button" class="body" data-open="${c.id}">${isRec?`<span class="flag">Suggested</span>`:""}<h3>${esc(c.title)}</h3><p>${esc(c.description)}</p></button>
-    <div class="acts">
-      <button type="button" class="p ${s==="p"?"on":""}" data-set="p" data-id="${c.id}" aria-pressed="${s==="p"}">Priority</button>
-      <button type="button" class="m ${s==="m"?"on":""}" data-set="m" data-id="${c.id}" aria-pressed="${s==="m"}">Maybe</button>
-      <button type="button" class="x ${s==="x"?"on":""}" data-set="x" data-id="${c.id}" aria-pressed="${s==="x"}">Not now</button>
-    </div></article>`;
+    <button type="button" class="body" data-open="${c.id}">${isRec?`<span class="flag">Suggested</span>`:""}<h3>${esc(c.title)}</h3><p>${esc(c.description)}</p>${s==="p"&&!cutView?(hasWhere(c.id)?`<span class="home">Where: ${esc(whereText(c.id))}</span>`:`<span class="home none">Needs a home: process, team and volume</span>`):""}</button>
+    ${cutView?`<div class="acts one"><button type="button" data-restore="${c.id}">Put back in the deck</button></div>`:`<div class="acts">
+      <button type="button" class="p ${s==="p"?"on":""}" data-set="p" data-id="${c.id}" aria-pressed="${s==="p"}">Now</button>
+      <button type="button" class="m ${s==="m"?"on":""}" data-set="m" data-id="${c.id}" aria-pressed="${s==="m"}">Later</button>
+      <button type="button" class="x ${s==="x"?"on":""}" data-set="x" data-id="${c.id}" aria-pressed="${s==="x"}">Not for us</button>
+    </div>`}</article>`;
 }
-function vCapture(){
-  const sl=shortlist().sort((a,b)=>(S.sort[a.id]===S.sort[b.id]?a.id-b.id:S.sort[a.id]==="p"?-1:1));
-  return `${exampleBanner()}
-  <div class="intro"><span class="label">Step 4 · ${sl.filter(c=>reqDone(c.id)).length} of ${sl.length} captured</span><h2>Requirements</h2><p class="muted">Work through each shortlisted card. A requirement counts as captured once it has a problem statement and value and complexity scores.</p></div>
-  ${sl.length?`<div class="reqlist">${sl.map(c=>{const r=S.reqs[c.id];const done=reqDone(c.id);
-    return `<div class="req" style="--cc:var(${CAT[c.category]})"><div style="min-width:0;display:grid;gap:4px">
-      <div class="meta"><span><span class="cat-dot"></span>${esc(c.category)} · No. ${c.id}</span>${statusMini(c.id)}<span class="pill ${done?"ok":"todo"}">${done?"Captured":"To capture"}</span></div>
-      <h3>${esc(r?.name||c.title)}</h3>${r?.problem?`<p class="muted" style="font-size:.88rem">${esc(r.problem)}</p>`:""}</div>
-      <button class="btn ${done?"":"primary"}" data-open="${c.id}" data-focus="req">${done?"Edit":"Capture"}</button></div>`}).join("")}</div>`
-  :`<div class="empty">No cards shortlisted yet. Mark cards as priority or maybe in the card sort.<div style="margin-top:10px"><button class="btn primary" data-go="sort">Go to card sort</button></div></div>`}`;
+function stackTags(s){
+  const p=byId[s.pattern];
+  return `<div class="stackcards">${p?`<span class="tagc pat" style="--cc:var(${CAT[p.category]})">Pattern: ${p.id} ${esc(p.title)}</span>`:`<span class="tagc" style="--cc:var(--muted)">No pattern card yet</span>`}${s.cards.map(i=>byId[i]).filter(Boolean).map(c=>`<span class="tagc" style="--cc:var(${CAT[c.category]})">${c.id} ${esc(c.title)}</span>`).join("")}</div>`;
 }
-function vBacklog(){
-  const items=shortlist().filter(c=>S.reqs[c.id]&&S.reqs[c.id].value&&S.reqs[c.id].complexity).map(c=>({c,r:S.reqs[c.id]}))
-    .sort((a,b)=>(b.r.value-b.r.complexity*0.5)-(a.r.value-a.r.complexity*0.5));
-  const missing=shortlist().length-items.length;
+function vSolutions(){
+  const now=nowCards(), loose=now.filter(c=>!stacksWith(c.id).length), n=S.stacks.length;
   return `${exampleBanner()}
-  <div class="intro"><span class="label">Step 5</span><h2>Agent backlog</h2><p class="muted">Agents ranked by value against complexity. Quick wins are the natural candidates for a first pilot.${missing?` ${missing} shortlisted card${missing>1?"s are":" is"} missing scores and not shown.`:""}</p></div>
+  <div class="intro"><span class="label">Step 4 · ${S.stacks.filter(stackReady).length} of ${n} qualified</span><h2>Build solutions from card combinations</h2><p class="muted">A real solution is almost never a single card. Use one Agentic card as the pattern, then put the capability cards that do the work underneath it. Qualify each stack with one line per question, and only then look at the product tags to pick a delivery tier.</p></div>
+  <div class="row" style="justify-content:space-between"><span class="pill ${n>=2&&n<=4?"ok":"todo"}">${n} solution${n===1?"":"s"} · aim for 2–4</span><button class="btn primary" data-act="newStack">New solution</button></div>
+  ${n?`<div class="reqlist">${S.stacks.map(s=>{const q=qualCount(s), p=procById(s.proc), ready=stackReady(s);
+    return `<div class="req"><div style="min-width:0;display:grid;gap:6px">
+      <div class="meta"><span class="pill ${q===QUAL.length?"ok":"todo"}">${q} of ${QUAL.length} lines</span><span class="pill ${stackScored(s)?"ok":"todo"}">${stackScored(s)?`Value ${s.value} · Feasibility ${s.feas}`:"Not scored"}</span>${p?`<span>${esc(procLabel(p))}</span>`:""}</div>
+      <h3>${esc(stackName(s))}</h3>${stackTags(s)}
+      <div class="muted" style="font-size:.84rem">${stackCards(s).length?esc(tierOf(s)):"Add cards to see the delivery tier"}</div></div>
+      <button class="btn ${ready?"":"primary"}" data-ostack="${s.id}">${ready?"Edit":"Qualify"}</button></div>`}).join("")}</div>`
+  :`<div class="empty">${now.length?"No solutions yet. Start one and pick the cards that belong together.":"Nothing is sorted into Now yet. Sort the deck first, then come back to combine the cards."}<div style="margin-top:10px">${now.length?`<button class="btn primary" data-act="newStack">New solution</button>`:`<button class="btn primary" data-go="sort">Go to card sort</button>`}</div></div>`}
+  ${loose.length?`<div class="panel" style="display:grid;gap:8px"><span class="label">Sorted Now, not in a solution yet</span><div class="chips">${loose.map(c=>`<button type="button" class="chip" data-open="${c.id}" style="--cc:var(${CAT[c.category]})"><span class="cat-dot"></span>${c.id} ${esc(c.title)}</button>`).join("")}</div></div>`:""}
+  ${S.stacks.some(stackScored)?`<div class="row"><button class="btn primary" data-go="pilot">Next: choose the pilot</button></div>`:""}`;
+}
+function vPilot(){
+  const items=scoredStacks(), missing=S.stacks.length-items.length, p=S.pilot, ps=stackById(p.stack);
+  return `${exampleBanner()}
+  <div class="intro"><span class="label">Step 5</span><h2>Choose the pilot</h2><p class="muted">Each solution is plotted on value against feasibility. The top-right quadrant is your pilot.${missing?` ${missing} solution${missing>1?"s are":" is"} missing scores and not shown.`:""}</p></div>
   ${items.length?`<div class="mx-wrap"><div class="panel">${matrixSVG(items)}</div>
     <div class="panel" style="display:grid;gap:10px;align-content:start"><span class="label">Ranked</span>
-    ${items.map((x,i)=>{const [q,qc]=quadrant(x.r);return `<div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:10px"><span style="min-width:0"><span class="mono muted">${i+1}.</span> <a href="#" data-open="${x.c.id}" style="color:var(--fg)">${esc(x.r.name)}</a></span><span class="quad ${qc}">${q}</span></div>`}).join("")}</div></div>
-  <div class="table-wrap"><table><thead><tr><th>#</th><th>Agent</th><th>Problem & users</th><th>Type</th><th>Knowledge & channels</th><th>Build path</th><th>Value</th><th>Complexity</th><th>Success measure</th></tr></thead><tbody>
-  ${items.map((x,i)=>{const plat=x.r.platform||suggestPlatform(x.c,x.r.complexity)[0];return `<tr><td class="num">${i+1}</td><td><b>${esc(x.r.name)}</b><div class="muted" style="font-size:.78rem">Card ${x.c.id}: ${esc(x.c.title)}</div></td><td>${esc(x.r.problem)}${x.r.users?`<div class="muted" style="font-size:.8rem">Users: ${esc(x.r.users)}</div>`:""}</td><td>${AGENT_TYPES[x.r.type]?.[0]||""}</td><td>${esc(x.r.knowledge.join(", "))}<div class="muted" style="font-size:.8rem">${esc(x.r.channels.join(", "))}</div></td><td>${esc(plat)}</td><td class="num">${x.r.value}</td><td class="num">${x.r.complexity}</td><td>${esc(x.r.success)}</td></tr>`}).join("")}
-  </tbody></table></div>`
-  :`<div class="empty">Score at least one shortlisted card for value and complexity to build the backlog.<div style="margin-top:10px"><button class="btn primary" data-go="capture">Go to requirements</button></div></div>`}
+    ${items.map((s,i)=>{const [q,qc]=quadrant(s);return `<div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:10px"><span style="min-width:0"><span class="mono muted">${i+1}.</span> <a href="#" data-ostack="${s.id}" style="color:var(--fg)">${esc(stackName(s))}</a> <span class="quad ${qc}">${q}</span></span>${p.stack===s.id?`<span class="pill p">The pilot</span>`:`<button class="btn sm" data-pilot="${s.id}">Make this the pilot</button>`}</div>`}).join("")}</div></div>
+  <div class="table-wrap"><table><thead><tr><th>#</th><th>Solution</th><th>Who & trigger</th><th>Data</th><th>Action & approval</th><th>Measure</th><th>Risk</th><th>Delivery tier</th><th>Value</th><th>Feasibility</th></tr></thead><tbody>
+  ${items.map((s,i)=>`<tr><td class="num">${i+1}</td><td><b>${esc(stackName(s))}</b><div class="muted" style="font-size:.78rem">Cards ${stackCards(s).map(c=>c.id).join(" + ")||"none"}${q(s)?"":" · not fully qualified"}</div></td><td>${esc(s.who)}${f(s.trigger)?`<div class="muted" style="font-size:.8rem">Trigger: ${esc(s.trigger)}</div>`:""}</td><td>${esc([...s.knowledge,f(s.dataNote)].filter(Boolean).join(", "))}${s.dataClean?`<div class="muted" style="font-size:.8rem">${esc(s.dataClean)}</div>`:""}</td><td>${esc(s.action)}${f(s.hitl)?`<div class="muted" style="font-size:.8rem">Approval: ${esc(s.hitl)}</div>`:""}</td><td>${esc(s.measure)}${f(s.volume)?`<div class="muted" style="font-size:.8rem">${esc(s.volume)}</div>`:""}</td><td>${esc([s.riskLevel,f(s.risk)].filter(Boolean).join(": "))}</td><td>${esc(tierOf(s))}</td><td class="num">${s.value}</td><td class="num">${s.feas}</td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="panel decision" style="display:grid;gap:14px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start"><div style="display:grid;gap:4px"><h3>Leave with one decision</h3><p class="muted" style="font-size:.88rem">Agree one pilot, a success measure and the next meeting.</p></div><span class="pill ${decided()?"ok":"todo"}" id="decPill">${decidedLabel()}</span></div>
+    <div class="field"><label for="d-pilot">The pilot</label><select id="d-pilot"><option value="">Choose from the scored solutions</option>${items.map(s=>`<option value="${s.id}" ${p.stack===s.id?"selected":""}>${esc(stackName(s))} (${quadrant(s)[0].toLowerCase()})</option>`).join("")}</select>${ps&&!(ps.value>=4&&ps.feas>=4)?`<span class="hint">This one sits outside the top-right quadrant. Check everyone is happy with why.</span>`:""}</div>
+    <div class="grid2"><div class="field"><label for="d-measure">Success measure</label><input type="text" id="d-measure" data-d="measure" value="${esc(p.measure)}" placeholder="What will prove the pilot worked?"></div>
+      <div class="field"><label for="d-owner">Customer owner</label><input type="text" id="d-owner" data-d="owner" value="${esc(p.owner)}" placeholder="Who says yes"></div></div>
+    <div class="grid2"><div class="field"><label for="d-date">Next meeting</label><input type="date" id="d-date" data-d="nextDate" value="${esc(p.nextDate)}"></div>
+      <div class="field"><label for="d-step">What happens at it</label><input type="text" id="d-step" data-d="nextStep" value="${esc(p.nextStep)}" placeholder="e.g. Scoping session with the process owner"></div></div>
+    <div class="field"><span class="lab">Funding route</span><div class="chips">${FUNDING.map(o=>`<button type="button" class="chip" data-fund="${esc(o)}" aria-pressed="${p.funding===o}">${esc(o)}</button>`).join("")}</div><span class="hint">If the pilot qualifies, attaching a funding route makes the yes easier to give.</span></div>
+    <div class="field"><label for="d-fnote">Funding notes</label><input type="text" id="d-fnote" data-d="fundingNote" value="${esc(p.fundingNote)}" placeholder="Eligibility, amount, who raises it"></div>
+  </div>`
+  :`<div class="empty">Score at least one solution for value and feasibility to choose a pilot.<div style="margin-top:10px"><button class="btn primary" data-go="solutions">Go to solutions</button></div></div>`}
   <div class="panel" style="display:grid;gap:12px"><div class="row" style="justify-content:space-between"><h3>Take it away</h3>
     <div class="row"><button class="btn" data-act="copyMd">Copy summary</button><button class="btn" data-act="copyCsv">Copy as CSV</button><button class="btn" data-act="copyJson">Copy workshop file</button></div></div>
     <p class="muted" style="font-size:.88rem">The summary pastes cleanly into Word, Loop, OneNote or an email. The CSV pastes into Excel. The workshop file lets you reload this session later or on another device.</p>
-    <details><summary style="cursor:pointer;font-weight:600">Load a saved workshop file</summary>
+    <details><summary>Load a saved workshop file</summary>
       <div style="display:grid;gap:8px;margin-top:10px"><textarea id="importBox" class="copybox" placeholder="Paste a workshop file here"></textarea>
       <div class="row"><button class="btn" data-act="import">Load workshop</button><label class="btn" for="importFile" style="cursor:pointer">Choose file…</label><input type="file" id="importFile" accept=".json,.txt,application/json" hidden></div></div></details>
     <div id="copyFallback"></div>
   </div>`;
+  function q(s){return qualCount(s)===QUAL.length}
 }
+function decided(){return !!(stackById(S.pilot.stack)&&f(S.pilot.measure)&&S.pilot.nextDate)}
+function decidedLabel(){return decided()?"Decision agreed":"Needs a pilot, a success measure and the next meeting"}
 function matrixSVG(items){
   const W=520,H=400,L=46,T=16,R=14,B=44,pw=W-L-R,ph=H-T-B;
   const x=v=>L+(v-0.5)/5*pw, y=v=>T+(5.5-v)/5*ph;
-  const seen={}; const pts=items.map((it,i)=>{const k=it.r.value+"-"+it.r.complexity;const n=seen[k]=(seen[k]||0)+1;const a=(n-1)*2.1;const off=n>1?11:0;return {i,cx:x(it.r.complexity)+Math.cos(a)*off,cy:y(it.r.value)+Math.sin(a)*off,it}});
-  return `<svg class="mx" viewBox="0 0 ${W} ${H}" role="img" aria-label="Value versus complexity matrix">
-   <rect x="${L}" y="${T}" width="${x(3.5)-L}" height="${y(3.5)-T}" fill="var(--good-soft)"/>
-   <rect x="${x(3.5)}" y="${T}" width="${L+pw-x(3.5)}" height="${y(3.5)-T}" fill="var(--accent-soft)"/>
-   <rect x="${L}" y="${y(3.5)}" width="${x(3.5)-L}" height="${T+ph-y(3.5)}" fill="var(--warn-soft)"/>
-   <rect x="${x(3.5)}" y="${y(3.5)}" width="${L+pw-x(3.5)}" height="${T+ph-y(3.5)}" fill="var(--surface-2)"/>
-   <text class="ql" x="${L+8}" y="${T+18}">Quick wins</text><text class="ql" x="${L+pw-8}" y="${T+18}" text-anchor="end">Strategic bets</text>
-   <text class="ql" x="${L+8}" y="${T+ph-8}">Fill-ins</text><text class="ql" x="${L+pw-8}" y="${T+ph-8}" text-anchor="end">Revisit later</text>
+  const seen={}; const pts=items.map((s,i)=>{const k=s.value+"-"+s.feas;const n=seen[k]=(seen[k]||0)+1;const a=(n-1)*2.1;const off=n>1?11:0;return {i,cx:x(s.feas)+Math.cos(a)*off,cy:y(s.value)+Math.sin(a)*off,s}});
+  return `<svg class="mx" viewBox="0 0 ${W} ${H}" role="img" aria-label="Value versus feasibility matrix">
+   <rect x="${L}" y="${T}" width="${x(3.5)-L}" height="${y(3.5)-T}" fill="var(--accent-soft)"/>
+   <rect x="${x(3.5)}" y="${T}" width="${L+pw-x(3.5)}" height="${y(3.5)-T}" fill="var(--good-soft)"/>
+   <rect x="${L}" y="${y(3.5)}" width="${x(3.5)-L}" height="${T+ph-y(3.5)}" fill="var(--surface-2)"/>
+   <rect x="${x(3.5)}" y="${y(3.5)}" width="${L+pw-x(3.5)}" height="${T+ph-y(3.5)}" fill="var(--warn-soft)"/>
+   <text class="ql" x="${L+8}" y="${T+18}">Strategic bets</text><text class="ql" x="${L+pw-8}" y="${T+18}" text-anchor="end">Pilot candidates</text>
+   <text class="ql" x="${L+8}" y="${T+ph-8}">Not yet</text><text class="ql" x="${L+pw-8}" y="${T+ph-8}" text-anchor="end">Fill-ins</text>
    ${[1,2,3,4,5].map(v=>`<text x="${x(v)}" y="${T+ph+16}" text-anchor="middle" font-size="11">${v}</text><text x="${L-10}" y="${y(v)+4}" text-anchor="end" font-size="11">${v}</text>`).join("")}
    <line x1="${L}" y1="${T+ph}" x2="${L+pw}" y2="${T+ph}" stroke="var(--line)"/><line x1="${L}" y1="${T}" x2="${L}" y2="${T+ph}" stroke="var(--line)"/>
-   <text x="${L+pw/2}" y="${H-6}" text-anchor="middle" font-size="12">Complexity →</text>
+   <text x="${L+pw/2}" y="${H-6}" text-anchor="middle" font-size="12">Feasibility →</text>
    <text transform="translate(13 ${T+ph/2}) rotate(-90)" text-anchor="middle" font-size="12">Value →</text>
-   ${pts.map(p=>`<g style="cursor:pointer" data-open="${p.it.c.id}"><circle cx="${p.cx}" cy="${p.cy}" r="10" fill="var(${CAT[p.it.c.category]})" stroke="var(--surface)" stroke-width="2"><title>${esc(p.it.r.name)}</title></circle><text class="dot-l" x="${p.cx}" y="${p.cy+4}" text-anchor="middle" style="fill:#fff;font-size:10px">${p.i+1}</text></g>`).join("")}
+   ${pts.map(p=>{const pilot=S.pilot.stack===p.s.id;return `<g style="cursor:pointer" data-ostack="${p.s.id}">${pilot?`<circle cx="${p.cx}" cy="${p.cy}" r="15" fill="none" stroke="var(--good)" stroke-width="2"/>`:""}<circle cx="${p.cx}" cy="${p.cy}" r="10" fill="var(${CAT[byId[p.s.pattern]?.category]||"--accent"})" stroke="var(--surface)" stroke-width="2"><title>${esc(stackName(p.s))}${pilot?" (the pilot)":""}</title></circle><text class="dot-l" x="${p.cx}" y="${p.cy+4}" text-anchor="middle" style="fill:#fff;font-size:10px">${p.i+1}</text></g>`}).join("")}
   </svg>`;
 }
 
 /* ---------- card sheet ---------- */
-let openId=null;
-function openSheet(id,focusReq){
-  openId=id; const c=byId[id]; const s=S.sort[id]||"";
-  const r=S.reqs[id]||blankReq(c);
-  const [sugg,why]=suggestPlatform(c,r.complexity||0);
-  const showReq=s==="p"||s==="m";
+let openId=null, openStackId=null, delConfirm=false;
+function navList(){const cs=cutSet(), cut=cs.has(openId);return CARDS.filter(c=>cs.has(c.id)===cut)}
+function openSheet(id,focusWhere){
+  openStackId=null; openId=id; const c=byId[id]; const s=S.sort[id]||"";
+  const w=S.where[id]||{proc:"",detail:""}, cut=cutSet().has(id), used=stacksWith(id), list=navList();
   $("#sheetHost").innerHTML=`<div class="scrim" data-close></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(c.title)}" style="--cc:var(${CAT[c.category]})">
-   <div class="sheet-h"><div class="row"><button class="btn sm" data-nav="-1" aria-label="Previous card">‹ Prev</button><button class="btn sm" data-nav="1" aria-label="Next card">Next ›</button><span class="mono muted">No. ${c.id} of ${CARDS.length}</span></div><button class="btn sm" data-close>Close</button></div>
+   <div class="sheet-h"><div class="row"><button class="btn sm" data-nav="-1" aria-label="Previous card">‹ Prev</button><button class="btn sm" data-nav="1" aria-label="Next card">Next ›</button><span class="mono muted">No. ${c.id} · ${list.findIndex(x=>x.id===id)+1} of ${list.length} ${cut?"cut":"in the deck"}</span></div><div class="row"><button class="btn sm ghost" data-act="toggleCut">${cut?"Put back in the deck":"Cut from the deck"}</button><button class="btn sm" data-close>Close</button></div></div>
    <div class="sheet-grid">
      <div style="display:grid;gap:10px"><img src="cards/${String(id).padStart(2,"0")}.jpg" alt="Card ${c.id}: ${esc(c.title)}" loading="lazy"></div>
      <div style="display:grid;gap:16px;min-width:0">
        <div style="display:grid;gap:6px"><span class="label"><span class="cat-dot"></span>${esc(c.category)}</span><h2>${esc(c.title)}</h2><p>${esc(c.description)}</p></div>
        <div class="ex"><span class="label">Examples</span>${c.examples.map(e=>`<div><b>${esc(e.sector)}.</b> ${esc(e.text)}</div>`).join("")}</div>
-       <div style="display:grid;gap:6px"><span class="label">Microsoft products on the card</span><div class="prods">${c.products.map(p=>`<span class="prod">${esc(p)}</span>`).join("")}</div></div>
-       <div style="display:grid;gap:6px"><span class="label">Does this matter to the customer?</span><div class="status-row">
-         <button class="st p" data-sset="p" aria-pressed="${s==="p"}">Priority</button><button class="st m" data-sset="m" aria-pressed="${s==="m"}">Maybe</button><button class="st x" data-sset="x" aria-pressed="${s==="x"}">Not now</button>${s?`<button class="btn sm ghost" data-sset="">Clear</button>`:""}</div></div>
-       ${showReq?reqForm(c,r,sugg,why):`<p class="muted" style="font-size:.88rem">Mark this card priority or maybe to capture its requirements.</p>`}
+       <div class="panel" style="display:grid;gap:10px"><div class="row" style="justify-content:space-between"><h3>Where would this happen?</h3>${s==="p"&&!hasWhere(id)?`<span class="pill warn">Needs a home</span>`:""}</div>
+         <p class="muted" style="font-size:.86rem">A card only goes in Now if someone can name the process, team and volume. "Summarise text" with no home goes back in the pile. "Summarise the 40 planning objections we get each week" stays.</p>
+         <div class="grid2"><div class="field"><label for="w-proc">Process</label><select id="w-proc"><option value="">${S.processes.length?"Pick a process from Discover":"No processes written down yet"}</option>${S.processes.map(p=>`<option value="${p.id}" ${w.proc===p.id?"selected":""}>${esc(procLabel(p))}</option>`).join("")}</select></div>
+           <div class="field"><label for="w-detail">Team and volume</label><input type="text" id="w-detail" data-w="detail" value="${esc(w.detail)}" placeholder="e.g. Planning team, 40 objections a week"></div></div></div>
+       <div style="display:grid;gap:6px"><span class="label">Where does the customer put this card?</span><div class="status-row">
+         <button class="st p" data-sset="p" aria-pressed="${s==="p"}">Now</button><button class="st m" data-sset="m" aria-pressed="${s==="m"}">Later</button><button class="st x" data-sset="x" aria-pressed="${s==="x"}">Not for us</button>${s?`<button class="btn sm ghost" data-sset="">Clear</button>`:""}</div></div>
+       ${used.length?`<div style="display:grid;gap:6px"><span class="label">Used in</span><div class="chips">${used.map(u=>`<button type="button" class="chip" data-ostack="${u.id}">${esc(stackName(u))}</button>`).join("")}</div></div>`:""}
+       ${s==="p"&&hasWhere(id)?`<div class="row"><button class="btn" data-act="stackFrom">Start a solution with this card</button></div>`:""}
+       <details><summary>Microsoft product tags</summary><p class="muted" style="font-size:.84rem;margin:6px 0">Leave these until the solution is qualified. They pick the delivery tier, not the requirement.</p><div class="prods">${c.products.map(p=>`<span class="prod">${esc(p)}</span>`).join("")}</div></details>
      </div></div></div>`;
   document.body.style.overflow="hidden";
-  if(focusReq){const el=$("#rq-name");el&&setTimeout(()=>el.scrollIntoView({block:"center"}),30)}
+  if(focusWhere){const el=$(S.processes.length?"#w-proc":"#w-detail");el&&setTimeout(()=>{el.scrollIntoView({block:"center"});el.focus()},30)}
 }
-function reqForm(c,r,sugg,why){
-  const chipset=(field,opts)=>`<div class="chips">${opts.map(o=>`<button type="button" class="chip" data-rchip="${field}" data-v="${esc(o)}" aria-pressed="${r[field].includes(o)}">${esc(o)}</button>`).join("")}</div>`;
-  const scale=f=>`<div class="scale" role="group">${[1,2,3,4,5].map(n=>`<button type="button" data-rscale="${f}" data-v="${n}" aria-pressed="${r[f]===n}" aria-label="${f} ${n}">${n}</button>`).join("")}</div>`;
-  return `<div class="panel" style="display:grid;gap:14px" id="reqPanel">
-   <div class="row" style="justify-content:space-between"><h3>Agent requirement</h3>${reqDone(c.id)?`<span class="pill ok">Captured</span>`:`<span class="pill todo">Needs problem, value and complexity</span>`}</div>
-   <div class="field"><label for="rq-name">Agent name</label><input type="text" id="rq-name" data-r="name" value="${esc(r.name)}"></div>
-   <div class="field"><label for="rq-problem">Business problem</label><textarea id="rq-problem" data-r="problem" placeholder="What happens today, and what does it cost them?">${esc(r.problem)}</textarea></div>
-   <div class="field"><label for="rq-users">Who will use it</label><input type="text" id="rq-users" data-r="users" value="${esc(r.users)}" placeholder="Roles, teams, numbers of people"></div>
-   <div class="field"><span class="lab">Agent type</span><div class="chips">${Object.entries(AGENT_TYPES).map(([k,[l,d]])=>`<button type="button" class="chip" data-rtype="${k}" aria-pressed="${r.type===k}" title="${esc(d)}">${l}</button>`).join("")}</div><span class="hint">${esc(AGENT_TYPES[r.type][1])}</span></div>
-   <div class="field"><span class="lab">Knowledge and data sources</span>${chipset("knowledge",KNOWLEDGE)}</div>
-   <div class="field"><label for="rq-actions">Actions and integrations</label><textarea id="rq-actions" data-r="actions" placeholder="What should the agent do, and in which systems?">${esc(r.actions)}</textarea></div>
-   <div class="field"><span class="lab">Where people use it</span>${chipset("channels",CHANNELS)}</div>
-   <div class="field"><label for="rq-success">Success measure</label><input type="text" id="rq-success" data-r="success" value="${esc(r.success)}" placeholder="e.g. Reduce handling time by 20%"></div>
-   <div class="grid2"><div class="field"><span class="lab">Business value</span>${scale("value")}<span class="hint">1 nice to have · 5 critical</span></div>
-     <div class="field"><span class="lab">Complexity</span>${scale("complexity")}<span class="hint">1 out of the box · 5 major build</span></div></div>
-   <div class="suggest"><b>Suggested build path:</b> ${esc(sugg)}. <span class="muted">${esc(why)}</span></div>
-   <div class="field"><label for="rq-platform">Build path</label><select id="rq-platform" data-r="platform"><option value="">Use suggestion (${esc(sugg)})</option>${PLATFORMS.map(p=>`<option ${r.platform===p?"selected":""}>${esc(p)}</option>`).join("")}</select></div>
-   <div class="grid2"><div class="field"><label for="rq-sponsor">Sponsor / owner</label><input type="text" id="rq-sponsor" data-r="sponsor" value="${esc(r.sponsor)}"></div>
-     <div class="field"><label for="rq-notes">Notes and open questions</label><textarea id="rq-notes" data-r="notes" style="min-height:44px">${esc(r.notes)}</textarea></div></div>
-  </div>`;
+
+/* ---------- solution sheet ---------- */
+function openStack(id){
+  const s=stackById(id); if(!s){closeSheet();return}
+  openId=null; openStackId=id;
+  const cs=cutSet();
+  const patterns=CARDS.filter(c=>c.category==="Agentic"&&(!cs.has(c.id)||s.pattern===c.id)).sort((a,b)=>((S.sort[b.id]==="p")-(S.sort[a.id]==="p"))||a.id-b.id);
+  const cap=st=>CARDS.filter(c=>c.category!=="Agentic"&&S.sort[c.id]===st);
+  const now=cap("p"), later=cap("m"), stray=s.cards.map(i=>byId[i]).filter(c=>c&&!now.includes(c)&&!later.includes(c));
+  const chip=c=>`<button type="button" class="chip" data-scard="${c.id}" aria-pressed="${s.cards.includes(c.id)}" style="--cc:var(${CAT[c.category]})" title="${esc(whereText(c.id)||c.description)}"><span class="cat-dot"></span>${c.id} ${esc(c.title)}</button>`;
+  const one=(field,opts)=>`<div class="chips">${opts.map(o=>`<button type="button" class="chip" data-sone="${field}" data-v="${esc(o)}" aria-pressed="${s[field]===o}">${esc(o)}</button>`).join("")}</div>`;
+  const scale=fl=>`<div class="scale" role="group">${[1,2,3,4,5].map(n=>`<button type="button" data-sscale="${fl}" data-v="${n}" aria-pressed="${s[fl]===n}" aria-label="${fl==="feas"?"feasibility":fl} ${n}">${n}</button>`).join("")}</div>`;
+  const text=(field,label,ph)=>`<div class="field"><label for="st-${field}">${label}</label><input type="text" id="st-${field}" data-s="${field}" value="${esc(s[field])}" placeholder="${esc(ph)}"></div>`;
+  const [ti,why]=suggestTier(s), used=stackCards(s);
+  $("#sheetHost").innerHTML=`<div class="scrim" data-close></div><div class="sheet narrow" role="dialog" aria-modal="true" aria-label="${esc(stackName(s))}">
+   <div class="sheet-h"><span class="label">Solution</span><button class="btn sm" data-close>Close</button></div>
+   <div style="display:grid;gap:16px">
+    <div class="panel" style="display:grid;gap:14px"><h3>The stack</h3>
+     ${text("name","Solution name","e.g. Front-door enquiry agent")}
+     <div class="field"><label for="st-proc">Process it serves</label><select id="st-proc"><option value="">${S.processes.length?"Pick a process from Discover":"No processes written down yet"}</option>${S.processes.map(p=>`<option value="${p.id}" ${s.proc===p.id?"selected":""}>${esc(procLabel(p))}</option>`).join("")}</select></div>
+     <div class="field"><span class="lab">Pattern: one Agentic card</span>${patterns.length?`<div class="chips">${patterns.map(c=>`<button type="button" class="chip" data-spat="${c.id}" aria-pressed="${s.pattern===c.id}" style="--cc:var(${CAT[c.category]})" title="${esc(c.description)}"><span class="cat-dot"></span>${c.id} ${esc(c.title)}${S.sort[c.id]==="p"?" · Now":""}</button>`).join("")}</div>`:`<span class="hint">Every Agentic card has been cut from the deck. Put one back in Prepare.</span>`}</div>
+     <div class="field"><span class="lab">Capability cards that do the work</span>${now.length?`<div class="chips">${now.map(chip).join("")}</div>`:`<span class="hint">No capability cards are sorted into Now yet.</span>`}
+       ${later.length?`<span class="hint">Sorted Later, pull in only if the stack needs them:</span><div class="chips">${later.map(chip).join("")}</div>`:""}
+       ${stray.length?`<span class="hint">In this stack but no longer sorted Now or Later:</span><div class="chips">${stray.map(chip).join("")}</div>`:""}</div>
+    </div>
+    <div class="panel" style="display:grid;gap:14px"><div class="row" style="justify-content:space-between"><h3>Qualify it: one line each</h3><span class="pill ${qualCount(s)===QUAL.length?"ok":"todo"}" id="qualPill">${qualLabel(s)}</span></div>
+     ${text("who","Who","The user or persona")}
+     ${text("trigger","Trigger","What starts it")}
+     <div class="field"><span class="lab">Data: where it lives</span><div class="chips">${KNOWLEDGE.map(o=>`<button type="button" class="chip" data-schip="${esc(o)}" aria-pressed="${s.knowledge.includes(o)}">${esc(o)}</button>`).join("")}</div>
+       <input type="text" data-s="dataNote" aria-label="Other data sources" value="${esc(s.dataNote)}" placeholder="Anything not listed"></div>
+     <div class="field"><span class="lab">Data: is it clean?</span>${one("dataClean",DATA_CLEAN)}</div>
+     ${text("action","Action","What the agent does or produces")}
+     ${text("hitl","Human-in-the-loop","Where a person approves")}
+     <div class="grid2">${text("measure","Measure","Time or cost saved")}${text("volume","Volume","e.g. 40 a week")}</div>
+     <div class="field"><span class="lab">Risk: how sensitive?</span>${one("riskLevel",RISK_LEVELS)}
+       <input type="text" data-s="risk" aria-label="Risk detail" value="${esc(s.risk)}" placeholder="The data and the processes it touches"></div>
+    </div>
+    <div class="panel" style="display:grid;gap:14px"><h3>Value and feasibility</h3>
+     <div class="grid2"><div class="field"><span class="lab">Value</span>${scale("value")}<span class="hint">1 nice to have · 5 critical</span></div>
+       <div class="field"><span class="lab">Feasibility</span>${scale("feas")}<span class="hint">1 major build · 5 ready to go</span></div></div>
+     ${stackScored(s)?`<div class="suggest"><b>${quadrant(s)[0]}.</b> <span class="muted">${s.value>=4&&s.feas>=4?"Top-right quadrant: a natural pilot.":"Outside the top-right quadrant."}</span></div>`:""}
+    </div>
+    <div class="panel" style="display:grid;gap:14px"><h3>Delivery tier</h3>
+     <p class="muted" style="font-size:.88rem">Now look at the product tags. Push down to the simplest tier that works: Microsoft 365 Copilot out of the box, then a Copilot Studio agent, then Power Platform, then a custom build.</p>
+     <div class="suggest"><b>Suggested tier:</b> ${esc(TIERS[ti])}. <span class="muted">${esc(why)}</span></div>
+     <div class="field"><label for="st-tier">Tier</label><select id="st-tier"><option value="">Use suggestion (${esc(TIERS[ti])})</option>${TIERS.map(t=>`<option ${s.tier===t?"selected":""}>${esc(t)}</option>`).join("")}</select></div>
+     ${used.length?`<div class="tagrows">${used.map(c=>`<div><b>${c.id} ${esc(c.title)}</b> <span class="muted">(${esc(TIERS[cardTier(c)])})</span><div class="prods" style="margin-top:4px">${c.products.map(p=>`<span class="prod">${esc(p)}</span>`).join("")}</div></div>`).join("")}</div>`:""}
+    </div>
+    <div class="panel grid2">${text("sponsor","Sponsor / owner","Who wants this")}
+     <div class="field"><label for="st-notes">Notes and open questions</label><textarea id="st-notes" data-s="notes" style="min-height:44px">${esc(s.notes)}</textarea></div></div>
+    <div class="row" style="justify-content:space-between">${delConfirm?`<span class="row"><span>Delete this solution?</span><button class="btn sm" data-act="delStackYes">Yes, delete</button><button class="btn sm ghost" data-act="delStackNo">Keep it</button></span>`:`<button class="btn sm ghost" data-act="delStack">Delete solution</button>`}<button class="btn primary" data-close>Done</button></div>
+   </div></div>`;
+  document.body.style.overflow="hidden";
 }
-function closeSheet(){openId=null;$("#sheetHost").innerHTML="";document.body.style.overflow="";render()}
-function ensureReq(id){if(!S.reqs[id]) S.reqs[id]=blankReq(byId[id]); return S.reqs[id]}
-function touched(){if(S.example){/* editing the example keeps it, but it's still flagged */} save(); renderChrome();}
+function qualLabel(s){const n=qualCount(s);return n===QUAL.length?"Qualified":`${n} of ${QUAL.length} lines · missing ${QUAL.filter(([,ok])=>!ok(s)).map(([l])=>l.toLowerCase()).join(", ")}`}
+function reopenStack(){const y=$(".sheet").scrollTop;openStack(openStackId);const sh=$(".sheet");if(sh)sh.scrollTop=y}
+function closeSheet(){openId=null;openStackId=null;delConfirm=false;$("#sheetHost").innerHTML="";document.body.style.overflow="";render()}
+function touched(){save(); renderChrome();}
 
 /* ---------- export ---------- */
-function backlogRows(){return shortlist().map(c=>({c,r:S.reqs[c.id]||blankReq(c)}))}
+function stackLine(s){const p=byId[s.pattern];return [p&&`Pattern ${p.id} ${p.title}`,...s.cards.map(i=>byId[i]).filter(Boolean).map(c=>`${c.id} ${c.title}`)].filter(Boolean).join(" + ")||"-"}
+function dataLine(s){return [[...s.knowledge,f(s.dataNote)].filter(Boolean).join(", "),s.dataClean].filter(Boolean).join(" — ")}
 function summaryMd(){
-  const c=S.customer; const rows=backlogRows().filter(x=>x.r.value&&x.r.complexity).sort((a,b)=>(b.r.value-b.r.complexity*0.5)-(a.r.value-a.r.complexity*0.5));
-  let t=`# Copilot agent discovery: ${c.name||"Customer"}\n\nDate: ${c.date||""}\nSector: ${c.sector||""}\nAttendees: ${c.attendees||""}\n\n## Business goals\n${c.goals||"-"}\n\n## What we heard\n`;
+  const c=S.customer, rows=scoredStacks(), p=S.pilot, ps=stackById(p.stack), cs=cutSet();
+  let t=`# Copilot agent discovery: ${c.name||"Customer"}\n\nDate: ${c.date||""}\nSector: ${c.sector||""}\nAttendees: ${c.attendees||""}\n\n## Business goals\n${c.goals||"-"}\n`;
+  t+=`\n## The decision\n- Pilot: ${ps?`${stackName(ps)} (${tierOf(ps)})`:"not agreed yet"}\n- Success measure: ${p.measure||"-"}\n- Customer owner: ${p.owner||"-"}\n- Next meeting: ${[p.nextDate,p.nextStep].filter(Boolean).join(" — ")||"-"}\n- Funding route: ${[p.funding,p.fundingNote].filter(Boolean).join(" — ")||"-"}\n`;
+  t+=`\n## Their processes\n`+(S.processes.length?S.processes.map(x=>`- ${procLabel(x)} — owner: ${x.owner||"-"}; team: ${x.team||"-"}; volume: ${x.volume||"-"}`).join("\n"):"-")+"\n";
+  t+=`\n## What we heard\n`;
   QUESTIONS.forEach(q=>{t+=`- ${q.title} ${(S.answers[q.key]||[]).join("; ")||"-"}\n`});
-  t+=`\n## Agent backlog (ranked)\n`;
-  rows.forEach((x,i)=>{const r=x.r;t+=`\n### ${i+1}. ${r.name} — ${quadrant(r)[0]}\n- Card: ${x.c.id} ${x.c.title} (${x.c.category})\n- Problem: ${r.problem}\n- Users: ${r.users}\n- Agent type: ${AGENT_TYPES[r.type][0]}\n- Knowledge: ${r.knowledge.join(", ")}\n- Channels: ${r.channels.join(", ")}\n- Actions: ${r.actions}\n- Success measure: ${r.success}\n- Value ${r.value}/5, complexity ${r.complexity}/5\n- Build path: ${r.platform||suggestPlatform(x.c,r.complexity)[0]}\n- Sponsor: ${r.sponsor}\n${r.notes?`- Notes: ${r.notes}\n`:""}`});
-  const un=backlogRows().filter(x=>!(x.r.value&&x.r.complexity));
-  if(un.length) t+=`\n## Shortlisted, not yet scored\n`+un.map(x=>`- ${x.c.title} (card ${x.c.id})`).join("\n")+"\n";
+  t+=`\n## Solutions (ranked by value and feasibility)\n`;
+  rows.forEach((s,i)=>{const pr=procById(s.proc);t+=`\n### ${i+1}. ${stackName(s)} — ${quadrant(s)[0]}${p.stack===s.id?" (the pilot)":""}\n- Cards: ${stackLine(s)}\n- Process: ${pr?procLabel(pr):"-"}\n- Who: ${s.who}\n- Trigger: ${s.trigger}\n- Data: ${dataLine(s)}\n- Action: ${s.action}\n- Human-in-the-loop: ${s.hitl}\n- Measure: ${[s.measure,s.volume].filter(Boolean).join("; volume ")}\n- Risk: ${[s.riskLevel,f(s.risk)].filter(Boolean).join(": ")}\n- Value ${s.value}/5, feasibility ${s.feas}/5\n- Delivery tier: ${tierOf(s)}\n- Sponsor: ${s.sponsor}\n${s.notes?`- Notes: ${s.notes}\n`:""}`});
+  const un=S.stacks.filter(s=>!stackScored(s));
+  if(un.length) t+=`\n## Solutions not yet scored\n`+un.map(s=>`- ${stackName(s)} (${stackLine(s)})`).join("\n")+"\n";
+  const loose=nowCards().filter(x=>!stacksWith(x.id).length);
+  if(loose.length) t+=`\n## Sorted Now, not in a solution yet\n`+loose.map(x=>`- ${x.title} (card ${x.id})${whereText(x.id)?` — ${whereText(x.id)}`:""}`).join("\n")+"\n";
+  const later=CARDS.filter(x=>S.sort[x.id]==="m");
+  if(later.length) t+=`\n## Later\n`+later.map(x=>`- ${x.title} (card ${x.id})`).join("\n")+"\n";
+  const gone=Object.keys(CAT).filter(cat=>CARDS.filter(x=>x.category===cat).every(x=>cs.has(x.id)));
+  t+=`\n## The deck\n${CARDS.length-cs.size} of ${CARDS.length} cards used.${gone.length?` Families cut: ${gone.join(", ")}.`:""}\n`;
   return t;
 }
 function summaryCsv(){
-  const h=["Rank","Agent","Card","Category","Status","Problem","Users","Type","Knowledge","Channels","Actions","Success measure","Value","Complexity","Quadrant","Build path","Sponsor","Notes"];
+  const h=["Rank","Solution","Pilot","Quadrant","Process","Pattern card","Capability cards","Who","Trigger","Data","Data quality","Action","Human-in-the-loop","Measure","Volume","Risk level","Risk","Value","Feasibility","Delivery tier","Sponsor","Notes"];
   const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
-  const rows=backlogRows().sort((a,b)=>((b.r.value||0)-(b.r.complexity||0)*0.5)-((a.r.value||0)-(a.r.complexity||0)*0.5));
-  return [h.map(q).join(","),...rows.map((x,i)=>{const r=x.r;return [i+1,r.name,x.c.id+" "+x.c.title,x.c.category,{p:"Priority",m:"Maybe"}[S.sort[x.c.id]],r.problem,r.users,AGENT_TYPES[r.type][0],r.knowledge.join("; "),r.channels.join("; "),r.actions,r.success,r.value||"",r.complexity||"",r.value&&r.complexity?quadrant(r)[0]:"",r.platform||suggestPlatform(x.c,r.complexity)[0],r.sponsor,r.notes].map(q).join(",")})].join("\n");
+  const rows=[...scoredStacks(),...S.stacks.filter(s=>!stackScored(s))];
+  return [h.map(q).join(","),...rows.map((s,i)=>{const p=byId[s.pattern], pr=procById(s.proc);
+    return [i+1,stackName(s),S.pilot.stack===s.id?"Yes":"",stackScored(s)?quadrant(s)[0]:"",pr?procLabel(pr):"",p?p.id+" "+p.title:"",s.cards.map(x=>byId[x]).filter(Boolean).map(x=>x.id+" "+x.title).join("; "),s.who,s.trigger,[...s.knowledge,f(s.dataNote)].filter(Boolean).join("; "),s.dataClean,s.action,s.hitl,s.measure,s.volume,s.riskLevel,s.risk,s.value||"",s.feas||"",tierOf(s),s.sponsor,s.notes].map(q).join(",")})].join("\n");
 }
 async function copy(text,label){
   try{await navigator.clipboard.writeText(text);toast(label+" copied");$("#copyFallback").innerHTML="";}
   catch(e){$("#copyFallback").innerHTML=`<p class="muted" style="font-size:.85rem">Your browser blocked the clipboard. Select the text below and copy it.</p><textarea class="copybox" readonly>${esc(text)}</textarea>`;const t=$("#copyFallback textarea");t.focus();t.select();}
 }
 function loadState(txt){
-  try{const o=JSON.parse(txt); if(!o||!o.customer||!o.sort) throw 0; o.example=false; o.answers=o.answers||{teams:[],pains:[],data:[]}; o.reqs=o.reqs||{}; S=o; save(); render(); toast("Workshop loaded");}
-  catch(e){toast("That isn't a workshop file. Copy it again from Backlog.")}
+  try{const o=JSON.parse(txt); if(!o||!o.customer||!o.sort) throw 0; o.example=false; S=normalize(o); save(); render(); toast("Workshop loaded");}
+  catch(e){toast("That isn't a workshop file. Copy it again from Pilot.")}
 }
 
 /* ---------- events ---------- */
+function setPilot(id){
+  S.pilot.stack=id; const s=stackById(id);
+  if(s){if(!f(S.pilot.measure)) S.pilot.measure=s.measure; if(!f(S.pilot.owner)) S.pilot.owner=s.sponsor;}
+  touched(); render();
+}
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-go],[data-act],[data-open],[data-set],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-rchip],[data-rscale],[data-rtype]");
+  const t=e.target.closest("[data-go],[data-act],[data-open],[data-ostack],[data-set],[data-restore],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-fam],[data-famopen],[data-cutcard],[data-delproc],[data-spat],[data-scard],[data-schip],[data-sone],[data-sscale],[data-pilot],[data-fund]");
   if(!t) return;
-  if(t.dataset.go){go(t.dataset.go);return}
-  if(t.dataset.open){e.preventDefault();openSheet(+t.dataset.open,t.dataset.focus==="req");return}
+  const d=t.dataset;
+  if(d.go){go(d.go);return}
+  if(d.open){e.preventDefault();openSheet(+d.open);return}
+  if(d.ostack){e.preventDefault();delConfirm=false;openStack(d.ostack);return}
   if(t.hasAttribute("data-close")){closeSheet();return}
-  if(t.dataset.nav){const i=CARDS.findIndex(c=>c.id===openId);const n=CARDS[(i+ +t.dataset.nav+CARDS.length)%CARDS.length];openSheet(n.id);return}
-  if(t.dataset.set){const id=+t.dataset.id;S.sort[id]=S.sort[id]===t.dataset.set?undefined:t.dataset.set;if(!S.sort[id])delete S.sort[id];touched();render();return}
-  if(t.hasAttribute("data-sset")){const v=t.dataset.sset;if(v)S.sort[openId]=v;else delete S.sort[openId];if(v==="p"||v==="m")ensureReq(openId);touched();openSheet(openId,v==="p"||v==="m");return}
-  if(t.dataset.q){const arr=S.answers[t.dataset.q]=S.answers[t.dataset.q]||[];const v=t.dataset.opt;const i=arr.indexOf(v);i>=0?arr.splice(i,1):arr.push(v);touched();render();return}
-  if(t.dataset.cat){deckFilter.cat=t.dataset.cat;render();return}
-  if(t.dataset.rchip){const r=ensureReq(openId);const a=r[t.dataset.rchip];const i=a.indexOf(t.dataset.v);i>=0?a.splice(i,1):a.push(t.dataset.v);t.setAttribute("aria-pressed",i<0);touched();return}
-  if(t.dataset.rscale){const r=ensureReq(openId);r[t.dataset.rscale]=+t.dataset.v;touched();const y=$(".sheet").scrollTop;openSheet(openId);$(".sheet").scrollTop=y;return}
-  if(t.dataset.rtype){const r=ensureReq(openId);r.type=t.dataset.rtype;touched();const y=$(".sheet").scrollTop;openSheet(openId);$(".sheet").scrollTop=y;return}
-  const a=t.dataset.act;
-  if(a==="new"){S=blankState();deckFilter={cat:"All",q:"",only:"all"};go("workshop");toast("New workshop started");return}
+  if(d.nav){const l=navList();const i=l.findIndex(c=>c.id===openId);openSheet(l[(i+ +d.nav+l.length)%l.length].id);return}
+  if(d.set){const id=+d.id;
+    if(d.set==="p"&&S.sort[id]!=="p"&&!hasWhere(id)){openSheet(id,true);toast("Say where this would happen before it goes in Now");return}
+    if(S.sort[id]===d.set) delete S.sort[id]; else S.sort[id]=d.set; touched();render();return}
+  if(d.restore){S.cut=S.cut.filter(x=>x!==+d.restore);touched();render();return}
+  if(t.hasAttribute("data-sset")){const v=d.sset;
+    if(v==="p"&&!hasWhere(openId)){toast("Say where this would happen first: a process, team and volume");const el=$(S.processes.length?"#w-proc":"#w-detail");el&&el.focus();return}
+    if(v)S.sort[openId]=v;else delete S.sort[openId];touched();openSheet(openId);return}
+  if(d.q){const arr=S.answers[d.q]=S.answers[d.q]||[];const v=d.opt;const i=arr.indexOf(v);i>=0?arr.splice(i,1):arr.push(v);touched();render();return}
+  if(d.cat){deckFilter.cat=d.cat;render();return}
+  if(d.famopen){famOpen.has(d.famopen)?famOpen.delete(d.famopen):famOpen.add(d.famopen);render();return}
+  if(d.fam){const ids=CARDS.filter(c=>c.category===d.fam).map(c=>c.id), cs=cutSet();
+    if(ids.some(id=>!cs.has(id))) ids.forEach(id=>cs.add(id)); else ids.forEach(id=>cs.delete(id));
+    S.cut=[...cs];touched();render();return}
+  if(d.cutcard){const id=+d.cutcard, cs=cutSet();cs.has(id)?cs.delete(id):cs.add(id);S.cut=[...cs];touched();render();return}
+  if(d.delproc){S.processes=S.processes.filter(p=>p.id!==d.delproc);touched();render();return}
+  if(d.pilot){setPilot(d.pilot);return}
+  if(d.fund){S.pilot.funding=S.pilot.funding===d.fund?"":d.fund;touched();render();return}
+  const st=stackById(openStackId);
+  if(st){
+    if(d.spat){st.pattern=st.pattern===+d.spat?null:+d.spat;touched();reopenStack();return}
+    if(d.scard){const id=+d.scard, i=st.cards.indexOf(id);i>=0?st.cards.splice(i,1):st.cards.push(id);touched();reopenStack();return}
+    if(d.schip){const i=st.knowledge.indexOf(d.schip);i>=0?st.knowledge.splice(i,1):st.knowledge.push(d.schip);touched();reopenStack();return}
+    if(d.sone){st[d.sone]=st[d.sone]===d.v?"":d.v;touched();reopenStack();return}
+    if(d.sscale){st[d.sscale]=st[d.sscale]===+d.v?0:+d.v;touched();reopenStack();return}
+  }
+  const a=d.act;
+  if(a==="new"){S=blankState();deckFilter={cat:"All",q:"",only:"all"};famOpen=new Set();go("workshop");toast("New workshop started");return}
   if(a==="sortRecs"){deckFilter={cat:"All",q:"",only:"recs"};go("sort");return}
+  if(a==="cutCopilot"){const cs=cutSet();CARDS.forEach(c=>{if(!COPILOT_LED.test(c.products.join("|"))) cs.add(c.id)});S.cut=[...cs];touched();render();toast(`${CARDS.length-cs.size} Copilot-led cards kept`);return}
+  if(a==="cutReset"){S.cut=[];touched();render();return}
+  if(a==="toggleCut"){const cs=cutSet();cs.has(openId)?cs.delete(openId):cs.add(openId);S.cut=[...cs];touched();openSheet(openId);return}
+  if(a==="addProc"){const p={id:uid(),name:"",owner:"",team:"",volume:""};S.processes.push(p);touched();render();const el=$("#pn-"+p.id);el&&el.focus();return}
+  if(a==="newStack"||a==="stackFrom"){const s=blankStack();
+    if(a==="stackFrom"){const c=byId[openId];if(c.category==="Agentic")s.pattern=c.id;else s.cards.push(c.id);s.proc=(S.where[openId]||{}).proc||"";}
+    S.stacks.push(s);delConfirm=false;if(view!=="solutions"){view="solutions"}touched();render();openStack(s.id);return}
+  if(a==="delStack"){delConfirm=true;reopenStack();return}
+  if(a==="delStackNo"){delConfirm=false;reopenStack();return}
+  if(a==="delStackYes"){S.stacks=S.stacks.filter(s=>s.id!==openStackId);if(S.pilot.stack===openStackId)S.pilot.stack="";touched();closeSheet();toast("Solution deleted");return}
   if(a==="copyMd") copy(summaryMd(),"Summary");
   if(a==="copyCsv") copy(summaryCsv(),"CSV");
   if(a==="copyJson") copy(JSON.stringify(S,null,1),"Workshop file");
   if(a==="import") loadState($("#importBox").value);
 });
 document.addEventListener("input",e=>{
-  const t=e.target;
-  if(t.dataset.c){S.customer[t.dataset.c]=t.value;touched();return}
-  if(t.dataset.r && openId){ensureReq(openId)[t.dataset.r]=t.value;touched();return}
+  const t=e.target, d=t.dataset;
+  if(t.tagName==="SELECT") return;
+  if(d.c){S.customer[d.c]=t.value;touched();return}
+  if(d.p){const p=procById(d.pid);if(p){p[d.p]=t.value;touched()}return}
+  if(d.w && openId!=null){(S.where[openId]=S.where[openId]||{proc:"",detail:""})[d.w]=t.value;touched();return}
+  if(d.s && openStackId){const s=stackById(openStackId);if(s){s[d.s]=t.value;touched();const pill=$("#qualPill");if(pill){pill.textContent=qualLabel(s);pill.className="pill "+(qualCount(s)===QUAL.length?"ok":"todo")}}return}
+  if(d.d){S.pilot[d.d]=t.value;touched();const pill=$("#decPill");if(pill){pill.textContent=decidedLabel();pill.className="pill "+(decided()?"ok":"todo")}return}
   if(t.id==="deckQ"){deckFilter.q=t.value;const pos=t.selectionStart;render();const n=$("#deckQ");n.focus();n.setSelectionRange(pos,pos)}
 });
 document.addEventListener("change",e=>{
   const t=e.target;
   if(t.id==="deckOnly"){deckFilter.only=t.value;render()}
-  if(t.id==="rq-platform"){ensureReq(openId).platform=t.value;touched()}
+  if(t.id==="w-proc"&&openId!=null){(S.where[openId]=S.where[openId]||{proc:"",detail:""}).proc=t.value;touched();openSheet(openId)}
+  if(t.id==="st-proc"&&openStackId){stackById(openStackId).proc=t.value;touched()}
+  if(t.id==="st-tier"&&openStackId){stackById(openStackId).tier=t.value;touched()}
+  if(t.id==="d-pilot"){setPilot(t.value)}
   if(t.id==="importFile"&&t.files[0]){const fr=new FileReader();fr.onload=()=>loadState(fr.result);fr.readAsText(t.files[0])}
 });
-document.addEventListener("keydown",e=>{if(openId==null)return;if(e.key==="Escape")closeSheet();
-  if((e.key==="ArrowRight"||e.key==="ArrowLeft")&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){const i=CARDS.findIndex(c=>c.id===openId);openSheet(CARDS[(i+(e.key==="ArrowRight"?1:-1)+CARDS.length)%CARDS.length].id)}});
+document.addEventListener("keydown",e=>{if(openId==null&&!openStackId)return;if(e.key==="Escape"){closeSheet();return}
+  if(openId!=null&&(e.key==="ArrowRight"||e.key==="ArrowLeft")&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){const l=navList();const i=l.findIndex(c=>c.id===openId);openSheet(l[(i+(e.key==="ArrowRight"?1:-1)+l.length)%l.length].id)}});
 
 function render(){
   renderChrome();
-  const V={workshop:vWorkshop,discover:vDiscover,sort:vSort,capture:vCapture,backlog:vBacklog}[view]||vWorkshop;
+  const V={workshop:vWorkshop,discover:vDiscover,sort:vSort,solutions:vSolutions,pilot:vPilot}[view]||vWorkshop;
   $("#main").innerHTML=`<section class="view">${V()}</section>`;
 }
 render();
