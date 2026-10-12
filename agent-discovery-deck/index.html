@@ -172,6 +172,20 @@ td.num{font-family:var(--f-mono);text-align:center}
 .fam{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--surface-2)}
 .fam-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .fam-n{font-weight:600;font-size:.9rem}
+.fam-stage{position:relative;min-width:0}
+.fam-track{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 10px;scrollbar-width:thin}
+.fam-track .cut-tile{flex:0 0 min(78vw,340px);scroll-snap-align:start}
+.fam-stage .gal-arrow.prev{left:6px} .fam-stage .gal-arrow.next{right:6px}
+.cut-tile{position:relative}
+.cut-img{display:block;width:100%;aspect-ratio:552/768;padding:0;border:2px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;cursor:pointer}
+.cut-img img{width:100%;height:100%;display:block;object-fit:cover}
+.cut-img[aria-pressed="true"]{border-color:var(--accent)}
+.cut-img[aria-pressed="false"] img{opacity:.3;filter:grayscale(1)}
+.cut-box{position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:7px;border:2px solid var(--muted);background:var(--surface);color:var(--accent-ink);display:grid;place-items:center;font-size:1.1rem;font-weight:700;line-height:1;pointer-events:none}
+.cut-img[aria-pressed="true"]~.cut-box{background:var(--accent);border-color:var(--accent)}
+.cut-img[aria-pressed="true"]~.cut-box::before{content:"✓"}
+.cut-zoom{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);cursor:pointer;display:grid;place-items:center;font-size:1rem;line-height:1}
+.cut-zoom:hover{border-color:var(--accent)}
 .procs{display:grid;gap:10px}
 .proc{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface-2)}
 .proc .btn{justify-self:start}
@@ -363,7 +377,7 @@ try{
   else if(old){const o=JSON.parse(old); S=o.example?exampleState():normalize(o);}
   else S=exampleState();
 }catch(e){S=exampleState();}
-let view="workshop", deckFilter={cat:"All",q:"",only:"all"}, famOpen=new Set();
+let view="workshop", deckFilter={cat:"All",q:"",only:"all"}, famOpen=new Set(Object.keys(CAT));
 try{view=localStorage.getItem(STORE_KEY+"-view")||"workshop"}catch(e){}
 function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(S));localStorage.setItem(STORE_KEY+"-view",view)}catch(e){}}
 
@@ -427,7 +441,7 @@ function vWorkshop(){
     <div class="fams">${Object.keys(CAT).map(cat=>{const cards=CARDS.filter(x=>x.category===cat), inn=cards.filter(x=>!cs.has(x.id)).length, open=famOpen.has(cat);
       return `<div class="fam" style="--cc:var(${CAT[cat]})"><div class="fam-h"><span class="fam-n"><span class="cat-dot"></span>${esc(cat)} <span class="mono muted">${inn}/${cards.length}</span></span>
         <span class="row"><button class="btn sm ghost" data-famopen="${esc(cat)}" aria-expanded="${open}">${open?"Hide cards":"Show cards"}</button><button class="btn sm" data-fam="${esc(cat)}">${inn?"Cut family":"Put back"}</button></span></div>
-        ${open?`<div class="chips">${cards.map(x=>`<button type="button" class="chip" data-cutcard="${x.id}" aria-pressed="${!cs.has(x.id)}" title="${esc(x.description)}">${x.id} ${esc(x.title)}</button>`).join("")}</div>`:""}</div>`}).join("")}</div>
+        ${open?`<div class="fam-stage"><button type="button" class="gal-arrow prev" data-famscroll="-1" aria-label="Previous cards">‹</button><div class="fam-track" data-track="${esc(cat)}">${cards.map(x=>`<div class="cut-tile"><button type="button" class="cut-img" data-cutcard="${x.id}" aria-pressed="${!cs.has(x.id)}" aria-label="Card ${x.id}: ${esc(x.title)}, in the deck" title="${esc(x.title)}"><img src="cards/${String(x.id).padStart(2,"0")}.jpg" alt="" loading="lazy" draggable="false"></button><span class="cut-box" aria-hidden="true"></span><button type="button" class="cut-zoom" data-zoom="${x.id}" aria-label="Enlarge card ${x.id}: ${esc(x.title)}" title="Enlarge">⤢</button></div>`).join("")}</div><button type="button" class="gal-arrow next" data-famscroll="1" aria-label="Next cards">›</button></div>`:""}</div>`}).join("")}</div>
   </div>
   <div class="row"><button class="btn primary" data-go="discover">Next: start with their pain</button><button class="btn ghost" data-go="sort">Skip to the card sort</button></div>
   <div class="panel"><span class="label">How the session runs</span>
@@ -606,6 +620,7 @@ function galUpdate(){
   $("#galCat").innerHTML=`<span class="cat-dot" style="--cc:var(${CAT[c.category]})"></span>${esc(c.category)}`;
   $("#galT").textContent=c.title;
   $("#galN").textContent=`${galIdx+1} of ${CARDS.length}`;
+  const inn=!cutSet().has(c.id), gc=$("#galCut"); gc.setAttribute("aria-pressed",inn); gc.textContent=inn?"✓ In the deck":"Cut · put back in the deck";
   $(".gal-arrow.prev").disabled=galIdx===0; $(".gal-arrow.next").disabled=galIdx===CARDS.length-1;
 }
 function galGo(i,instant){
@@ -620,7 +635,7 @@ function openGallery(){
    <div class="gal-stage"><button type="button" class="gal-arrow prev" data-gal="-1" aria-label="Previous card">‹</button>
     <div class="gal-track" id="galTrack">${CARDS.map((c,i)=>`<button type="button" class="gal-item" data-gi="${i}"><img src="cards/${String(c.id).padStart(2,"0")}.jpg" alt="Card ${c.id}: ${esc(c.title)}" loading="lazy" draggable="false"></button>`).join("")}</div>
     <button type="button" class="gal-arrow next" data-gal="1" aria-label="Next card">›</button></div>
-   <div class="gal-f"><button class="btn" data-act="galDetail">Open card details</button><span class="muted" style="font-size:.82rem">Swipe, or use the arrow keys</span></div></div>`;
+   <div class="gal-f"><button type="button" class="chip" id="galCut" data-act="galCut"></button><button class="btn" data-act="galDetail">Open card details</button><span class="muted" style="font-size:.82rem">Swipe, or use the arrow keys</span></div></div>`;
   document.body.style.overflow="hidden";
   const tr=$("#galTrack"); let raf=0;
   tr.addEventListener("scroll",()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{
@@ -733,13 +748,16 @@ function setPilot(id){
   touched(); render();
 }
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-go],[data-act],[data-open],[data-ostack],[data-set],[data-restore],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-fam],[data-famopen],[data-cutcard],[data-delproc],[data-spat],[data-scard],[data-schip],[data-sone],[data-sscale],[data-pilot],[data-fund],[data-gal],[data-gi]");
+  const t=e.target.closest("[data-go],[data-act],[data-open],[data-ostack],[data-set],[data-restore],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-fam],[data-famopen],[data-cutcard],[data-delproc],[data-spat],[data-scard],[data-schip],[data-sone],[data-sscale],[data-pilot],[data-fund],[data-gal],[data-gi],[data-zoom],[data-famscroll]");
   if(!t) return;
   const d=t.dataset;
   if(d.go){go(d.go);return}
   if(d.gal){galGo(galIdx+ +d.gal);return}
   if(d.gi){galGo(+d.gi);return}
+  if(d.famscroll){const tr=t.parentElement.querySelector(".fam-track"), w=tr.firstElementChild.offsetWidth+14;tr.scrollBy({left:+d.famscroll*w*Math.max(1,Math.floor(tr.clientWidth/w)),behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"});return}
+  if(d.zoom){galIdx=Math.max(0,CARDS.findIndex(c=>c.id===+d.zoom));openGallery();return}
   if(d.act==="gallery"){openGallery();return}
+  if(d.act==="galCut"){const id=CARDS[galIdx].id, cs=cutSet();cs.has(id)?cs.delete(id):cs.add(id);S.cut=[...cs];touched();galUpdate();return}
   if(d.act==="galDetail"){galOn=false;openSheet(CARDS[galIdx].id);return}
   if(d.open){e.preventDefault();openSheet(+d.open);return}
   if(d.ostack){e.preventDefault();delConfirm=false;openStack(d.ostack);return}
@@ -771,7 +789,7 @@ document.addEventListener("click",e=>{
     if(d.sscale){st[d.sscale]=st[d.sscale]===+d.v?0:+d.v;touched();reopenStack();return}
   }
   const a=d.act;
-  if(a==="new"){S=blankState();deckFilter={cat:"All",q:"",only:"all"};famOpen=new Set();go("workshop");toast("New workshop started");return}
+  if(a==="new"){S=blankState();deckFilter={cat:"All",q:"",only:"all"};famOpen=new Set(Object.keys(CAT));go("workshop");toast("New workshop started");return}
   if(a==="sortRecs"){deckFilter={cat:"All",q:"",only:"recs"};go("sort");return}
   if(a==="cutCopilot"){const cs=cutSet();CARDS.forEach(c=>{if(!COPILOT_LED.test(c.products.join("|"))) cs.add(c.id)});S.cut=[...cs];touched();render();toast(`${CARDS.length-cs.size} Copilot-led cards kept`);return}
   if(a==="cutReset"){S.cut=[];touched();render();return}
@@ -815,8 +833,13 @@ document.addEventListener("keydown",e=>{
 function render(){
   renderChrome();
   const V={workshop:vWorkshop,discover:vDiscover,sort:vSort,solutions:vSolutions,pilot:vPilot}[view]||vWorkshop;
+  const keep={}; document.querySelectorAll(".fam-track").forEach(t=>keep[t.dataset.track]=t.scrollLeft);
   $("#main").innerHTML=`<section class="view">${V()}</section>`;
+  document.querySelectorAll(".fam-track").forEach(t=>{t.scrollLeft=keep[t.dataset.track]||0;famArrows(t)});
 }
+function famArrows(t){const max=t.scrollWidth-t.clientWidth, [p,n]=t.parentElement.querySelectorAll(".gal-arrow");p.hidden=n.hidden=max<=1;p.disabled=t.scrollLeft<=1;n.disabled=t.scrollLeft>=max-1}
+document.addEventListener("scroll",e=>{const t=e.target;if(t.classList&&t.classList.contains("fam-track"))famArrows(t)},true);
+addEventListener("resize",()=>document.querySelectorAll(".fam-track").forEach(famArrows));
 render();
 </script>
 
