@@ -187,6 +187,24 @@ td.num{font-family:var(--f-mono);text-align:center}
 details>summary{cursor:pointer;font-weight:600;font-size:.88rem}
 .panel.decision{border-color:var(--accent)}
 .copybox{width:100%;min-height:160px;font-family:var(--f-mono);font-size:.78rem}
+
+/* card carousel */
+.gal{--gw:min(76vw,calc(min(66dvh,640px)*552/768));position:fixed;inset:0;z-index:41;background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 16px) 0 calc(env(safe-area-inset-bottom,0px) + 18px)}
+.gal-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-inline:18px}
+.gal-h>div:first-child{display:grid;gap:4px;min-width:0}
+.gal-stage{position:relative;min-height:0;display:grid}
+.gal-track{display:flex;align-items:center;gap:18px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;position:relative}
+.gal-track::-webkit-scrollbar{display:none}
+.gal-track::before,.gal-track::after{content:"";flex:0 0 calc(50% - var(--gw)/2 - 18px)}
+.gal-item{flex:0 0 auto;width:var(--gw);aspect-ratio:552/768;margin:0;padding:0;border:0;background:none;scroll-snap-align:center;cursor:pointer;border-radius:12px;transform:scale(.86);opacity:.5}
+.gal-item.on{transform:none;opacity:1;cursor:default}
+.gal-item img{width:100%;height:100%;display:block;border-radius:12px;box-shadow:var(--shadow);background:var(--surface-2)}
+.gal-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:1;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);cursor:pointer;font-size:1.4rem;line-height:1;display:grid;place-items:center}
+.gal-arrow:hover{border-color:var(--accent)}
+.gal-arrow:disabled{opacity:.35;cursor:default}
+.gal-arrow.prev{left:12px} .gal-arrow.next{right:12px}
+.gal-f{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;padding-inline:18px}
+@media (prefers-reduced-motion:no-preference){.gal-item{transition:transform .2s ease-out,opacity .2s ease-out}}
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:8px;z-index:60;font-size:.88rem}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}}
 </style>
@@ -198,7 +216,7 @@ details>summary{cursor:pointer;font-weight:600;font-size:.88rem}
   <div class="wrap">
     <div class="brand">
       <div class="brand-l"><h1>Agent Discovery Deck</h1><span class="cust" id="hdrCust"></span></div>
-      <div class="tally" id="tally"></div>
+      <div class="row"><div class="tally" id="tally"></div><button type="button" class="btn sm" data-act="gallery">View all cards</button></div>
     </div>
     <nav class="steps" id="steps" aria-label="Workshop steps"></nav>
   </div>
@@ -579,6 +597,39 @@ function openSheet(id,focusWhere){
   if(focusWhere){const el=$(S.processes.length?"#w-proc":"#w-detail");el&&setTimeout(()=>{el.scrollIntoView({block:"center"});el.focus()},30)}
 }
 
+/* ---------- card carousel ---------- */
+let galOn=false, galIdx=0;
+function galItems(){return [...document.querySelectorAll(".gal-item")]}
+function galUpdate(){
+  const c=CARDS[galIdx]; if(!c) return;
+  galItems().forEach((el,i)=>{el.classList.toggle("on",i===galIdx);el.setAttribute("aria-current",i===galIdx)});
+  $("#galCat").innerHTML=`<span class="cat-dot" style="--cc:var(${CAT[c.category]})"></span>${esc(c.category)}`;
+  $("#galT").textContent=c.title;
+  $("#galN").textContent=`${galIdx+1} of ${CARDS.length}`;
+  $(".gal-arrow.prev").disabled=galIdx===0; $(".gal-arrow.next").disabled=galIdx===CARDS.length-1;
+}
+function galGo(i,instant){
+  galIdx=Math.max(0,Math.min(CARDS.length-1,i)); const el=galItems()[galIdx];
+  el&&el.scrollIntoView({inline:"center",block:"nearest",behavior:instant||matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"});
+  galUpdate();
+}
+function openGallery(){
+  openId=null; openStackId=null; galOn=true;
+  $("#sheetHost").innerHTML=`<div class="gal" role="dialog" aria-modal="true" aria-label="All cards">
+   <div class="gal-h"><div><span class="label" id="galCat"></span><h2 id="galT"></h2></div><div class="row" style="flex-wrap:nowrap"><span class="mono muted" id="galN"></span><button class="btn sm" data-close>Close</button></div></div>
+   <div class="gal-stage"><button type="button" class="gal-arrow prev" data-gal="-1" aria-label="Previous card">‹</button>
+    <div class="gal-track" id="galTrack">${CARDS.map((c,i)=>`<button type="button" class="gal-item" data-gi="${i}"><img src="cards/${String(c.id).padStart(2,"0")}.jpg" alt="Card ${c.id}: ${esc(c.title)}" loading="lazy" draggable="false"></button>`).join("")}</div>
+    <button type="button" class="gal-arrow next" data-gal="1" aria-label="Next card">›</button></div>
+   <div class="gal-f"><button class="btn" data-act="galDetail">Open card details</button><span class="muted" style="font-size:.82rem">Swipe, or use the arrow keys</span></div></div>`;
+  document.body.style.overflow="hidden";
+  const tr=$("#galTrack"); let raf=0;
+  tr.addEventListener("scroll",()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{
+    const mid=tr.scrollLeft+tr.clientWidth/2; let best=0, bd=Infinity;
+    galItems().forEach((el,i)=>{const d=Math.abs(el.offsetLeft+el.offsetWidth/2-mid);if(d<bd){bd=d;best=i}});
+    if(best!==galIdx){galIdx=best;galUpdate()}})});
+  galGo(galIdx,true);
+}
+
 /* ---------- solution sheet ---------- */
 function openStack(id){
   const s=stackById(id); if(!s){closeSheet();return}
@@ -634,7 +685,7 @@ function openStack(id){
 }
 function qualLabel(s){const n=qualCount(s);return n===QUAL.length?"Qualified":`${n} of ${QUAL.length} lines · missing ${QUAL.filter(([,ok])=>!ok(s)).map(([l])=>l.toLowerCase()).join(", ")}`}
 function reopenStack(){const y=$(".sheet").scrollTop;openStack(openStackId);const sh=$(".sheet");if(sh)sh.scrollTop=y}
-function closeSheet(){openId=null;openStackId=null;delConfirm=false;$("#sheetHost").innerHTML="";document.body.style.overflow="";render()}
+function closeSheet(){openId=null;openStackId=null;delConfirm=false;galOn=false;$("#sheetHost").innerHTML="";document.body.style.overflow="";render()}
 function touched(){save(); renderChrome();}
 
 /* ---------- export ---------- */
@@ -682,10 +733,14 @@ function setPilot(id){
   touched(); render();
 }
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-go],[data-act],[data-open],[data-ostack],[data-set],[data-restore],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-fam],[data-famopen],[data-cutcard],[data-delproc],[data-spat],[data-scard],[data-schip],[data-sone],[data-sscale],[data-pilot],[data-fund]");
+  const t=e.target.closest("[data-go],[data-act],[data-open],[data-ostack],[data-set],[data-restore],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-fam],[data-famopen],[data-cutcard],[data-delproc],[data-spat],[data-scard],[data-schip],[data-sone],[data-sscale],[data-pilot],[data-fund],[data-gal],[data-gi]");
   if(!t) return;
   const d=t.dataset;
   if(d.go){go(d.go);return}
+  if(d.gal){galGo(galIdx+ +d.gal);return}
+  if(d.gi){galGo(+d.gi);return}
+  if(d.act==="gallery"){openGallery();return}
+  if(d.act==="galDetail"){galOn=false;openSheet(CARDS[galIdx].id);return}
   if(d.open){e.preventDefault();openSheet(+d.open);return}
   if(d.ostack){e.preventDefault();delConfirm=false;openStack(d.ostack);return}
   if(t.hasAttribute("data-close")){closeSheet();return}
@@ -752,7 +807,9 @@ document.addEventListener("change",e=>{
   if(t.id==="d-pilot"){setPilot(t.value)}
   if(t.id==="importFile"&&t.files[0]){const fr=new FileReader();fr.onload=()=>loadState(fr.result);fr.readAsText(t.files[0])}
 });
-document.addEventListener("keydown",e=>{if(openId==null&&!openStackId)return;if(e.key==="Escape"){closeSheet();return}
+document.addEventListener("keydown",e=>{
+  if(galOn){if(e.key==="Escape")closeSheet();else if(e.key==="ArrowRight"||e.key==="ArrowLeft"){e.preventDefault();galGo(galIdx+(e.key==="ArrowRight"?1:-1))}return}
+  if(openId==null&&!openStackId)return;if(e.key==="Escape"){closeSheet();return}
   if(openId!=null&&(e.key==="ArrowRight"||e.key==="ArrowLeft")&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){const l=navList();const i=l.findIndex(c=>c.id===openId);openSheet(l[(i+(e.key==="ArrowRight"?1:-1)+l.length)%l.length].id)}});
 
 function render(){
