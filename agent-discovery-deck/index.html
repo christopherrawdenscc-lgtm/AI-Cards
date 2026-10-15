@@ -201,6 +201,14 @@ td.num{font-family:var(--f-mono);text-align:center}
 details>summary{cursor:pointer;font-weight:600;font-size:.88rem}
 .panel.decision{border-color:var(--accent)}
 .copybox{width:100%;min-height:160px;font-family:var(--f-mono);font-size:.78rem}
+/* local AI */
+.ai-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:6px;vertical-align:middle}
+.ai-dot.on{background:var(--good)} .ai-dot.off{background:var(--warn)}
+.ai-box{border:1px dashed var(--accent);border-radius:8px;padding:10px 12px;background:var(--accent-soft);font-size:.88rem;display:grid;gap:6px;white-space:pre-wrap}
+.ai-box .label{white-space:normal}
+.ai-panel{display:grid;gap:12px;border-color:var(--accent)}
+.ai-note{font-size:.8rem;color:var(--muted)}
+.sheet code,.ai-panel code{font-family:var(--f-mono);font-size:.82em;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
 
 /* card carousel */
 .gal{--gw:min(76vw,calc(min(66dvh,640px)*552/768));position:fixed;inset:0;z-index:41;background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 16px) 0 calc(env(safe-area-inset-bottom,0px) + 18px)}
@@ -230,7 +238,7 @@ details>summary{cursor:pointer;font-weight:600;font-size:.88rem}
   <div class="wrap">
     <div class="brand">
       <div class="brand-l"><h1>Agent Discovery Deck</h1><span class="cust" id="hdrCust"></span></div>
-      <div class="row"><div class="tally" id="tally"></div><button type="button" class="btn sm" data-act="gallery">View all cards</button></div>
+      <div class="row"><div class="tally" id="tally"></div><button type="button" class="btn sm" data-act="gallery">View all cards</button><button type="button" class="btn sm" data-act="aiSettings" id="aiBtn" title="AI drafting with a model running on this PC"><span class="ai-dot"></span>Local AI</button></div>
     </div>
     <nav class="steps" id="steps" aria-label="Workshop steps"></nav>
   </div>
@@ -415,6 +423,7 @@ const STEPS=[["workshop","Prepare"],["discover","Discover"],["sort","Card sort"]
 function renderChrome(){
   $("#steps").innerHTML=STEPS.map(([k,l],i)=>`<button type="button" data-step="${k}" ${view===k?'aria-current="step"':""}><span class="n">${i+1}</span>${l}</button>`).join("");
   $("#hdrCust").textContent=S.customer.name?("· "+S.customer.name+(S.example?" (example)":"")):"";
+  const dot=$("#aiBtn .ai-dot"); if(dot) dot.className="ai-dot "+(aiReady()?"on":aiState==="offline"?"off":"");
   $("#tally").innerHTML=`<span title="Cards left in the deck">${CARDS.length-cutSet().size} in deck</span><span title="Cards sorted into Now">${nowCards().length} now</span><span title="Solutions qualified and scored">${S.stacks.filter(stackReady).length}/${S.stacks.length} qualified</span>`;
 }
 $("#steps").addEventListener("click",e=>{const b=e.target.closest("[data-step]");if(b){go(b.dataset.step)}});
@@ -469,6 +478,7 @@ function vDiscover(){
   </div>
   <div class="qgrid">${QUESTIONS.map(q=>`<div class="panel q"><h3>${q.title}</h3><p class="muted">${q.help}</p>
    <div class="chips">${q.opts.map(([lab])=>`<button type="button" class="chip" data-q="${q.key}" data-opt="${esc(lab)}" aria-pressed="${(S.answers[q.key]||[]).includes(lab)}">${esc(lab)}</button>`).join("")}</div></div>`).join("")}</div>
+  ${aiDiscoverPanel()}
   <div class="row" style="justify-content:space-between"><h3>Suggested cards to start with</h3>${recs.length?`<button class="btn primary" data-act="sortRecs">Sort these cards</button>`:`<button class="btn" data-go="sort">Go to the card sort</button>`}</div>
   ${recs.length?`<div class="recs">${recs.map(r=>{const c=byId[r.id];return `<div class="rec" style="--cc:var(${CAT[c.category]})">
     <div class="row" style="justify-content:space-between"><span class="label"><span class="cat-dot"></span>${esc(c.category)}</span><span class="score">No. ${c.id}</span></div>
@@ -551,6 +561,8 @@ function vPilot(){
       <div class="field"><label for="d-step">What happens at it</label><input type="text" id="d-step" data-d="nextStep" value="${esc(p.nextStep)}" placeholder="e.g. Scoping session with the process owner"></div></div>
     <div class="field"><span class="lab">Funding route</span><div class="chips">${FUNDING.map(o=>`<button type="button" class="chip" data-fund="${esc(o)}" aria-pressed="${p.funding===o}">${esc(o)}</button>`).join("")}</div><span class="hint">If the pilot qualifies, attaching a funding route makes the yes easier to give.</span></div>
     <div class="field"><label for="d-fnote">Funding notes</label><input type="text" id="d-fnote" data-d="fundingNote" value="${esc(p.fundingNote)}" placeholder="Eligibility, amount, who raises it"></div>
+    ${aiReady()?`<div style="display:grid;gap:8px"><div class="row">${aiBtn("email","Draft the follow-up email with local AI","btn")}${aiOut.email?`<button class="btn sm ghost" data-act="copyEmail">Copy email</button>`:""}</div>
+      ${aiOut.email?`<textarea class="copybox" id="aiEmail" aria-label="Draft follow-up email" style="font-family:inherit;font-size:.86rem">${esc(aiOut.email)}</textarea><span class="ai-note">Drafted on this PC by ${esc(AI.model)}. Edit it before you send it.</span>`:""}</div>`:""}
   </div>`
   :`<div class="empty">Score at least one solution for value and feasibility to choose a pilot.<div style="margin-top:10px"><button class="btn primary" data-go="solutions">Go to solutions</button></div></div>`}
   <div class="panel" style="display:grid;gap:12px"><div class="row" style="justify-content:space-between"><h3>Take it away</h3>
@@ -595,9 +607,11 @@ function openSheet(id,focusWhere){
    <div class="sheet-grid">
      <div style="display:grid;gap:10px"><img src="cards/${String(id).padStart(2,"0")}.jpg" alt="Card ${c.id}: ${esc(c.title)}" loading="lazy"></div>
      <div style="display:grid;gap:16px;min-width:0">
-       <div style="display:grid;gap:6px"><span class="label"><span class="cat-dot"></span>${esc(c.category)}</span><h2>${esc(c.title)}</h2><p>${esc(c.description)}</p></div>
+       <div style="display:grid;gap:6px"><span class="label"><span class="cat-dot"></span>${esc(c.category)}</span><h2>${esc(c.title)}</h2><p>${esc(c.description)}</p>
+         ${aiReady()?`<div class="row">${aiBtn("explain","Explain for "+(f(S.customer.name)||"this customer"))}</div>`:""}
+         ${aiOut.explain[id]?`<div class="ai-box"><span class="label">Local AI · for ${esc(f(S.customer.name)||"this customer")}</span>${esc(aiOut.explain[id])}</div>`:""}</div>
        <div class="ex"><span class="label">Examples</span>${c.examples.map(e=>`<div><b>${esc(e.sector)}.</b> ${esc(e.text)}</div>`).join("")}</div>
-       <div class="panel" style="display:grid;gap:10px"><div class="row" style="justify-content:space-between"><h3>Where would this happen?</h3>${s==="p"&&!hasWhere(id)?`<span class="pill warn">Needs a home</span>`:""}</div>
+       <div class="panel" style="display:grid;gap:10px"><div class="row" style="justify-content:space-between"><h3>Where would this happen?</h3><span class="row">${s==="p"&&!hasWhere(id)?`<span class="pill warn">Needs a home</span>`:""}${aiBtn("where","Draft with local AI")}</span></div>
          <p class="muted" style="font-size:.86rem">A card only goes in Now if someone can name the process, team and volume. "Summarise text" with no home goes back in the pile. "Summarise the 40 planning objections we get each week" stays.</p>
          <div class="grid2"><div class="field"><label for="w-proc">Process</label><select id="w-proc"><option value="">${S.processes.length?"Pick a process from Discover":"No processes written down yet"}</option>${S.processes.map(p=>`<option value="${p.id}" ${w.proc===p.id?"selected":""}>${esc(procLabel(p))}</option>`).join("")}</select></div>
            <div class="field"><label for="w-detail">Team and volume</label><input type="text" id="w-detail" data-w="detail" value="${esc(w.detail)}" placeholder="e.g. Planning team, 40 objections a week"></div></div></div>
@@ -670,6 +684,7 @@ function openStack(id){
        ${stray.length?`<span class="hint">In this stack but no longer sorted Now or Later:</span><div class="chips">${stray.map(chip).join("")}</div>`:""}</div>
     </div>
     <div class="panel" style="display:grid;gap:14px"><div class="row" style="justify-content:space-between"><h3>Qualify it: one line each</h3><span class="pill ${qualCount(s)===QUAL.length?"ok":"todo"}" id="qualPill">${qualLabel(s)}</span></div>
+     ${aiReady()?`<div class="row">${aiBtn("qualify","Draft the empty lines with local AI")}<span class="ai-note">Only fills lines that are still empty. Check each one with the customer.</span></div>`:""}
      ${text("who","Who","The user or persona")}
      ${text("trigger","Trigger","What starts it")}
      <div class="field"><span class="lab">Data: where it lives</span><div class="chips">${KNOWLEDGE.map(o=>`<button type="button" class="chip" data-schip="${esc(o)}" aria-pressed="${s.knowledge.includes(o)}">${esc(o)}</button>`).join("")}</div>
@@ -700,7 +715,7 @@ function openStack(id){
 }
 function qualLabel(s){const n=qualCount(s);return n===QUAL.length?"Qualified":`${n} of ${QUAL.length} lines · missing ${QUAL.filter(([,ok])=>!ok(s)).map(([l])=>l.toLowerCase()).join(", ")}`}
 function reopenStack(){const y=$(".sheet").scrollTop;openStack(openStackId);const sh=$(".sheet");if(sh)sh.scrollTop=y}
-function closeSheet(){openId=null;openStackId=null;delConfirm=false;galOn=false;$("#sheetHost").innerHTML="";document.body.style.overflow="";render()}
+function closeSheet(){openId=null;openStackId=null;delConfirm=false;galOn=false;aiSheetOn=false;$("#sheetHost").innerHTML="";document.body.style.overflow="";render()}
 function touched(){save(); renderChrome();}
 
 /* ---------- export ---------- */
@@ -737,8 +752,151 @@ async function copy(text,label){
   catch(e){$("#copyFallback").innerHTML=`<p class="muted" style="font-size:.85rem">Your browser blocked the clipboard. Select the text below and copy it.</p><textarea class="copybox" readonly>${esc(text)}</textarea>`;const t=$("#copyFallback textarea");t.focus();t.select();}
 }
 function loadState(txt){
-  try{const o=JSON.parse(txt); if(!o||!o.customer||!o.sort) throw 0; o.example=false; S=normalize(o); save(); render(); toast("Workshop loaded");}
+  try{const o=JSON.parse(txt); if(!o||!o.customer||!o.sort) throw 0; o.example=false; S=normalize(o); aiOut={discover:null,explain:{},email:""}; save(); render(); toast("Workshop loaded");}
   catch(e){toast("That isn't a workshop file. Copy it again from Pilot.")}
+}
+
+/* ---------- local AI (Foundry Local) ---------- */
+/* Talks to an OpenAI-compatible model server on this PC. Nothing is sent anywhere else. */
+const AI_KEY="add-ai";
+let AI={url:"http://127.0.0.1:58017",model:"",on:false}, aiState="off", aiModels=[], aiMsg="", aiBusy="", aiSheetOn=false, aiOut={discover:null,explain:{},email:""};
+try{Object.assign(AI,JSON.parse(localStorage.getItem(AI_KEY)||"{}"))}catch(e){}
+function saveAI(){try{localStorage.setItem(AI_KEY,JSON.stringify(AI))}catch(e){}}
+function aiReady(){return aiState==="ready"}
+function aiBase(){return f(AI.url).replace(/\/+$/,"").replace(/\/v1$/,"")}
+function aiBtn(k,label,cls){return aiReady()?`<button type="button" class="${cls||"btn sm"}" data-aiact="${k}" ${aiBusy?"disabled":""}>${aiBusy===k?"Thinking… (on this PC)":"✦ "+esc(label)}</button>`:""}
+async function aiFetch(path,opt,ms){
+  const ac=new AbortController(), t=setTimeout(()=>ac.abort(),ms||120000);
+  try{const r=await fetch(aiBase()+path,Object.assign({},opt,{signal:ac.signal}));if(!r.ok) throw new Error("HTTP "+r.status);return await r.json()}
+  finally{clearTimeout(t)}
+}
+async function aiConnect(quiet){
+  aiState="checking"; if(!quiet) refreshUI();
+  try{
+    const j=await aiFetch("/v1/models",{},8000); aiModels=(j.data||[]).map(m=>m.id).filter(Boolean);
+    if(!aiModels.length) throw new Error("no models");
+    if(!aiModels.includes(AI.model)) AI.model=aiModels.find(m=>/phi-4-mini/i.test(m))||aiModels[0];
+    AI.on=true; saveAI(); aiState="ready"; aiMsg=`Connected to Foundry Local. Using ${AI.model}.`;
+  }catch(e){aiState="offline"; aiMsg=`Can't reach Foundry Local at ${aiBase()}. Check it's running and that the address matches the Web URL from foundry status.`}
+  refreshUI();
+}
+async function aiChat(system,user,max){
+  const j=await aiFetch("/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:AI.model,messages:[{role:"system",content:system},{role:"user",content:user}],max_tokens:max||400,temperature:0.3})});
+  const c=j.choices&&j.choices[0]; return f(c&&(c.message||c.delta||{}).content);
+}
+/* Small models wrap JSON in prose or return several objects, so take the first complete object */
+function aiJSON(txt){
+  const a=txt.indexOf("{"); if(a<0) throw new Error("no JSON in reply");
+  let depth=0, str=false, esc1=false;
+  for(let i=a;i<txt.length;i++){const ch=txt[i];
+    if(str){if(esc1)esc1=false;else if(ch==="\\")esc1=true;else if(ch==='"')str=false;continue}
+    if(ch==='"')str=true;else if(ch==="{")depth++;else if(ch==="}"&&--depth===0)return JSON.parse(txt.slice(a,i+1));}
+  throw new Error("unfinished JSON in reply");
+}
+async function aiRun(k,job){
+  if(aiBusy){toast("Local AI is still working on the last request");return}
+  aiBusy=k; refreshUI();
+  try{await job()}
+  catch(e){console.warn("[local-ai]",e); toast(e.name==="AbortError"?"Local AI took too long. Try again.":"Local AI couldn't answer that. Try again.")}
+  finally{aiBusy=""; refreshUI()}
+}
+/* Re-draws whatever is on screen, keeping the sheet's scroll position */
+function refreshUI(){
+  if(aiSheetOn){openAISheet();renderChrome();return}
+  const sh=$(".sheet"), y=sh?sh.scrollTop:0;
+  if(openId!=null) openSheet(openId); else if(openStackId) openStack(openStackId); else if(!galOn) render();
+  const n=$(".sheet"); if(n) n.scrollTop=y;
+  renderChrome();
+}
+const AI_SYS="You help a Microsoft partner run an AI agent discovery workshop with a customer. Be concrete and brief, use plain UK English, and do not invent facts about the customer beyond what you are given.";
+function aiContext(){
+  const c=S.customer;
+  return [`Customer: ${f(c.name)||"unnamed"}${f(c.sector)?` (${c.sector})`:""}`, f(c.goals)&&`Goals: ${c.goals}`,
+    S.processes.length&&"Processes:\n"+S.processes.map((p,i)=>`P${i+1}. ${procLabel(p)}; owner ${f(p.owner)||"?"}; team ${f(p.team)||"?"}; volume ${f(p.volume)||"?"}`).join("\n"),
+    ...QUESTIONS.map(q=>(S.answers[q.key]||[]).length&&`${q.title} ${S.answers[q.key].join("; ")}`)].filter(Boolean).join("\n");
+}
+function procFromLabel(l){const m=/P(\d+)/i.exec(String(l||"")), p=m&&S.processes[+m[1]-1]; return p?p.id:""}
+
+async function aiDiscover(){
+  const deck=inDeck(), brief=deck.length>40, ids=new Set(deck.map(c=>c.id)), seen=new Set();
+  const list=deck.map(c=>`${c.id}. ${c.title}${brief?"":`: ${c.description.slice(0,90)}`}`).join("\n");
+  const j=aiJSON(await aiChat(AI_SYS+" Reply with JSON only.",
+    `${aiContext()}\n\nCards in the deck:\n${list}\n\nPick up to 6 cards from the deck that best fit this customer's processes and pains. For each give the card id, the process label (such as P1) it fits or "", and one short sentence on why it fits that names their process or pain rather than repeating the card. Reply as {"suggestions":[{"id":0,"process":"P1","why":"..."}]}`,500));
+  const out=(j.suggestions||[]).map(x=>({id:+x.id,proc:procFromLabel(x.process),why:f(x.why)})).filter(x=>ids.has(x.id)&&!seen.has(x.id)&&seen.add(x.id)).slice(0,6);
+  if(!out.length) throw new Error("no usable suggestions");
+  aiOut.discover=out;
+}
+async function aiWhere(id){
+  const c=byId[id];
+  const j=aiJSON(await aiChat(AI_SYS+" Reply with JSON only.",
+    `${aiContext()}\n\nCard ${c.id}: ${c.title}. ${c.description}\n\nSay where this card would happen for this customer: the process label (P1, P2…) it fits best, or "" if none fits, and one short line naming the team and the volume, using the figures given where you can. Reply as {"process":"P1","detail":"Team, volume"}`,150));
+  const w=S.where[id]=S.where[id]||{proc:"",detail:""}, pid=procFromLabel(j.process);
+  if(pid) w.proc=pid; if(f(j.detail)) w.detail=f(j.detail).slice(0,160);
+  touched(); toast("Drafted. Check it with the customer.");
+}
+async function aiExplain(id){
+  const c=byId[id];
+  aiOut.explain[id]=await aiChat(AI_SYS,
+    `${aiContext()}\n\nCard ${c.id}: ${c.title}\n${c.description}\nExamples: ${c.examples.map(e=>e.sector+": "+e.text).join(" ")}\n\nIn two or three sentences, explain what this card could do for this customer, tied to one of their processes if one fits. Name processes in words, never by labels such as P1. No preamble.`,220);
+}
+const AI_FIELDS=["who","trigger","action","hitl","measure","risk"];
+async function aiQualify(sid){
+  const s=stackById(sid); if(!s) return;
+  const pr=procById(s.proc), done=AI_FIELDS.filter(k=>f(s[k])).map(k=>`${k}: ${s[k]}`).join("; ");
+  const c=S.customer;
+  const j=aiJSON(await aiChat(AI_SYS+" Reply with one JSON object only.",
+    `Customer: ${f(c.name)||"unnamed"}${f(c.sector)?` (${c.sector})`:""}\n${f(c.goals)?"Goals: "+c.goals+"\n":""}\nThis is ONE solution. Solution: ${stackName(s)}\nProcess: ${pr?[procLabel(pr),f(pr.team)&&"team "+pr.team,f(pr.owner)&&"owner "+pr.owner,f(pr.volume)&&"volume "+pr.volume].filter(Boolean).join("; "):"not chosen"}\nCards: ${stackCards(s).map(c=>`${c.title} (${c.description.slice(0,80)})`).join("; ")}\n${done?"Already agreed: "+done+"\n":""}\nDraft one short line for each qualifying question. who: the user or persona. trigger: what starts it. action: what the agent does or produces. hitl: where a person approves. measure: time or cost saved. risk: the data and processes it touches. riskLevel must be Low, Medium or High. Reply with a single object for this one solution, as {"name":"","who":"","trigger":"","action":"","hitl":"","measure":"","risk":"","riskLevel":""}`,400));
+  const t=stackById(sid); if(!t) return; let n=0;
+  if(!f(t.name)&&f(j.name)){t.name=f(j.name).slice(0,80);n++}
+  AI_FIELDS.forEach(k=>{if(!f(t[k])&&f(j[k])){t[k]=f(j[k]).slice(0,200);n++}});
+  if(!t.riskLevel&&RISK_LEVELS.includes(f(j.riskLevel))){t.riskLevel=f(j.riskLevel);n++}
+  touched(); toast(n?`Filled ${n} empty line${n>1?"s":""}. Check them with the customer.`:"Nothing was left empty to fill.");
+}
+async function aiEmail(){
+  const p=S.pilot, s=stackById(p.stack), c=S.customer;
+  aiOut.email=await aiChat(AI_SYS,
+    `Customer: ${f(c.name)||"the customer"}${f(c.sector)?` (${c.sector})`:""}\nAttendees: ${f(c.attendees)||"-"}\nGoals: ${f(c.goals)||"-"}\nPilot: ${s?stackName(s)+" — "+[s.action,s.who].filter(f).join("; "):"not agreed yet"}\nDelivery: ${s?tierOf(s):"-"}\nSuccess measure: ${f(p.measure)||"-"}\nCustomer owner: ${f(p.owner)||"-"}\nNext meeting: ${[p.nextDate,p.nextStep].filter(f).join(", ")||"-"}\nFunding: ${[p.funding,p.fundingNote].filter(f).join(", ")||"-"}\nOther solutions discussed: ${S.stacks.filter(x=>x!==s).map(stackName).join(", ")||"none"}\n\nWrite a short follow-up email from the partner to the customer after the workshop. Thank them, restate the pilot, the success measure, the owner and the next meeting, and list two or three things to bring to it. Under 180 words, plain text, starting with a "Subject:" line. Don't add a signature name.`,450);
+}
+function aiAction(k){
+  if(!aiReady()){openAISheet();return}
+  const id=openId, sid=openStackId;
+  if(k==="discover"){if(!S.processes.some(p=>f(p.name))&&!QUESTIONS.some(q=>(S.answers[q.key]||[]).length)){toast("Write down a process or tag an answer first");return} aiRun(k,aiDiscover)}
+  if(k==="where"&&id!=null) aiRun(k,()=>aiWhere(id));
+  if(k==="explain"&&id!=null) aiRun(k,()=>aiExplain(id));
+  if(k==="qualify"&&sid){if(!stackCards(stackById(sid)).length){toast("Pick the pattern and capability cards first");return} aiRun(k,()=>aiQualify(sid))}
+  if(k==="email"){if(!stackById(S.pilot.stack)){toast("Choose the pilot first");return} aiRun(k,aiEmail)}
+}
+function aiDiscoverPanel(){
+  if(!aiReady()) return "";
+  const out=aiOut.discover;
+  return `<div class="panel ai-panel"><div class="row" style="justify-content:space-between;align-items:flex-start"><div style="display:grid;gap:4px;max-width:70ch"><h3>Local AI suggestions</h3><p class="muted" style="font-size:.88rem">Reads the processes and answers above and picks cards from the deck. It runs on this PC through Foundry Local, so nothing leaves the room.</p></div>${aiBtn("discover",out?"Suggest again":"Suggest cards","btn primary")}</div>
+   ${out?`<div class="recs">${out.map(r=>{const c=byId[r.id], pr=procById(r.proc);return `<div class="rec" style="--cc:var(${CAT[c.category]})">
+     <div class="row" style="justify-content:space-between"><span class="label"><span class="cat-dot"></span>${esc(c.category)}</span><span class="score">No. ${c.id}</span></div>
+     <h3>${esc(c.title)}</h3>${r.why?`<p class="muted" style="font-size:.86rem">${esc(r.why)}</p>`:""}${pr?`<div class="why">Fits: ${esc(procLabel(pr))}</div>`:""}
+     <div class="row"><button class="btn sm" data-open="${c.id}">Open card</button>${statusMini(c.id)}</div></div>`}).join("")}</div>`:""}</div>`;
+}
+function openAISheet(){
+  aiSheetOn=true; openId=null; openStackId=null;
+  const st={ready:"Connected",offline:"Not reachable",checking:"Checking…",off:"Off"}[aiState];
+  $("#sheetHost").innerHTML=`<div class="scrim" data-close></div><div class="sheet narrow" role="dialog" aria-modal="true" aria-label="Local AI">
+   <div class="sheet-h"><span class="label">Local AI · Foundry Local</span><button class="btn sm" data-close>Close</button></div>
+   <div style="display:grid;gap:16px">
+    <p class="muted">Adds AI drafting to the deck with a small language model, such as Phi-4-mini, running on this PC. Workshop details go only to the address below and never to the cloud.</p>
+    <div class="panel" style="display:grid;gap:12px">
+     <div class="field"><label for="ai-url">Foundry Local address</label><input type="text" id="ai-url" data-ai="url" value="${esc(AI.url)}" placeholder="http://127.0.0.1:58017" spellcheck="false" autocomplete="off"><span class="hint">Run <code>foundry status</code> and copy the Web URL. It can change when Foundry restarts.</span></div>
+     ${aiModels.length?`<div class="field"><label for="ai-model">Model</label><select id="ai-model">${aiModels.map(m=>`<option ${m===AI.model?"selected":""}>${esc(m)}</option>`).join("")}</select><span class="hint">Phi-4-mini is the default. Load a model first with <code>foundry model load</code>.</span></div>`:""}
+     <div class="row"><button class="btn primary" data-act="aiConnect" ${aiState==="checking"?"disabled":""}>${aiReady()?"Reconnect":"Connect"}</button>${AI.on?`<button class="btn ghost" data-act="aiOff">Turn off</button>`:""}<span class="pill ${aiReady()?"ok":aiState==="offline"?"warn":"todo"}">${st}</span></div>
+     ${aiMsg?`<p class="muted" style="font-size:.86rem">${esc(aiMsg)}</p>`:""}
+    </div>
+    <div class="panel" style="display:grid;gap:10px"><h3>Set it up</h3>
+     <ol style="margin:0;padding-left:1.2em;display:grid;gap:6px;font-size:.88rem">
+      <li>Install Foundry Local: <code>winget install Microsoft.FoundryLocal</code></li>
+      <li>Load the model: <code>foundry model load phi-4-mini</code></li>
+      <li>Run <code>foundry status</code>, paste the Web URL above and press Connect. Allow the browser's local network prompt if it asks.</li></ol>
+     <p class="muted" style="font-size:.86rem">Then look for the ✦ buttons in Discover, on each card, in each solution and in Pilot. Everything the AI drafts is a starting point to check with the customer.</p></div>
+   </div></div>`;
+  document.body.style.overflow="hidden";
 }
 
 /* ---------- events ---------- */
@@ -748,10 +906,15 @@ function setPilot(id){
   touched(); render();
 }
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-go],[data-act],[data-open],[data-ostack],[data-set],[data-restore],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-fam],[data-famopen],[data-cutcard],[data-delproc],[data-spat],[data-scard],[data-schip],[data-sone],[data-sscale],[data-pilot],[data-fund],[data-gal],[data-gi],[data-zoom],[data-famscroll]");
+  const t=e.target.closest("[data-go],[data-act],[data-open],[data-ostack],[data-set],[data-restore],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-fam],[data-famopen],[data-cutcard],[data-delproc],[data-spat],[data-scard],[data-schip],[data-sone],[data-sscale],[data-pilot],[data-fund],[data-gal],[data-gi],[data-zoom],[data-famscroll],[data-aiact]");
   if(!t) return;
   const d=t.dataset;
   if(d.go){go(d.go);return}
+  if(d.aiact){aiAction(d.aiact);return}
+  if(d.act==="aiSettings"){openAISheet();return}
+  if(d.act==="aiConnect"){aiConnect();return}
+  if(d.act==="aiOff"){AI.on=false;saveAI();aiState="off";aiMsg="";refreshUI();return}
+  if(d.act==="copyEmail"){copy(f(($("#aiEmail")||{}).value)||aiOut.email,"Email");return}
   if(d.gal){galGo(galIdx+ +d.gal);return}
   if(d.gi){galGo(+d.gi);return}
   if(d.famscroll){const tr=t.parentElement.querySelector(".fam-track"), w=tr.firstElementChild.offsetWidth+14;tr.scrollBy({left:+d.famscroll*w*Math.max(1,Math.floor(tr.clientWidth/w)),behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"});return}
@@ -789,7 +952,7 @@ document.addEventListener("click",e=>{
     if(d.sscale){st[d.sscale]=st[d.sscale]===+d.v?0:+d.v;touched();reopenStack();return}
   }
   const a=d.act;
-  if(a==="new"){S=blankState();deckFilter={cat:"All",q:"",only:"all"};famOpen=new Set(Object.keys(CAT));go("workshop");toast("New workshop started");return}
+  if(a==="new"){S=blankState();aiOut={discover:null,explain:{},email:""};deckFilter={cat:"All",q:"",only:"all"};famOpen=new Set(Object.keys(CAT));go("workshop");toast("New workshop started");return}
   if(a==="sortRecs"){deckFilter={cat:"All",q:"",only:"recs"};go("sort");return}
   if(a==="cutCopilot"){const cs=cutSet();CARDS.forEach(c=>{if(!COPILOT_LED.test(c.products.join("|"))) cs.add(c.id)});S.cut=[...cs];touched();render();toast(`${CARDS.length-cs.size} Copilot-led cards kept`);return}
   if(a==="cutReset"){S.cut=[];touched();render();return}
@@ -809,6 +972,8 @@ document.addEventListener("click",e=>{
 document.addEventListener("input",e=>{
   const t=e.target, d=t.dataset;
   if(t.tagName==="SELECT") return;
+  if(d.ai){AI[d.ai]=t.value;saveAI();return}
+  if(t.id==="aiEmail"){aiOut.email=t.value;return}
   if(d.c){S.customer[d.c]=t.value;touched();return}
   if(d.p){const p=procById(d.pid);if(p){p[d.p]=t.value;touched()}return}
   if(d.w && openId!=null){(S.where[openId]=S.where[openId]||{proc:"",detail:""})[d.w]=t.value;touched();return}
@@ -819,6 +984,7 @@ document.addEventListener("input",e=>{
 document.addEventListener("change",e=>{
   const t=e.target;
   if(t.id==="deckOnly"){deckFilter.only=t.value;render()}
+  if(t.id==="ai-model"){AI.model=t.value;saveAI();aiMsg=`Using ${AI.model}.`}
   if(t.id==="w-proc"&&openId!=null){(S.where[openId]=S.where[openId]||{proc:"",detail:""}).proc=t.value;touched();openSheet(openId)}
   if(t.id==="st-proc"&&openStackId){stackById(openStackId).proc=t.value;touched()}
   if(t.id==="st-tier"&&openStackId){stackById(openStackId).tier=t.value;touched()}
@@ -827,7 +993,7 @@ document.addEventListener("change",e=>{
 });
 document.addEventListener("keydown",e=>{
   if(galOn){if(e.key==="Escape")closeSheet();else if(e.key==="ArrowRight"||e.key==="ArrowLeft"){e.preventDefault();galGo(galIdx+(e.key==="ArrowRight"?1:-1))}return}
-  if(openId==null&&!openStackId)return;if(e.key==="Escape"){closeSheet();return}
+  if(openId==null&&!openStackId&&!aiSheetOn)return;if(e.key==="Escape"){closeSheet();return}
   if(openId!=null&&(e.key==="ArrowRight"||e.key==="ArrowLeft")&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){const l=navList();const i=l.findIndex(c=>c.id===openId);openSheet(l[(i+(e.key==="ArrowRight"?1:-1)+l.length)%l.length].id)}});
 
 function render(){
@@ -841,6 +1007,7 @@ function famArrows(t){const max=t.scrollWidth-t.clientWidth, [p,n]=t.parentEleme
 document.addEventListener("scroll",e=>{const t=e.target;if(t.classList&&t.classList.contains("fam-track"))famArrows(t)},true);
 addEventListener("resize",()=>document.querySelectorAll(".fam-track").forEach(famArrows));
 render();
+if(AI.on) aiConnect(true);
 </script>
 
 </body>
