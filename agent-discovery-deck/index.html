@@ -238,7 +238,7 @@ details>summary{cursor:pointer;font-weight:600;font-size:.88rem}
   <div class="wrap">
     <div class="brand">
       <div class="brand-l"><h1>Agent Discovery Deck</h1><span class="cust" id="hdrCust"></span></div>
-      <div class="row"><div class="tally" id="tally"></div><button type="button" class="btn sm" data-act="gallery">View all cards</button><button type="button" class="btn sm" data-act="aiSettings" id="aiBtn" title="AI drafting with a model running on this PC"><span class="ai-dot"></span>Local AI</button></div>
+      <div class="row"><div class="tally" id="tally"></div><button type="button" class="btn sm" data-act="gallery">View all cards</button><button type="button" class="btn sm" data-act="testData" title="Fill the app with the made-up Harbour Valley Foods workshop">Load test data</button><button type="button" class="btn sm" data-act="aiSettings" id="aiBtn" title="AI drafting with a model running on this PC"><span class="ai-dot"></span>Local AI</button></div>
     </div>
     <nav class="steps" id="steps" aria-label="Workshop steps"></nav>
   </div>
@@ -359,6 +359,34 @@ function exampleState(){
   s.pilot={stack:"s1",measure:"Deflect 15% of calls on the top five enquiry types within 8 weeks",owner:"Head of Customer Services",nextDate:"2026-10-28",nextStep:"Scoping session with the contact centre leads",funding:"ECIF",fundingNote:""};
   return s;
 }
+/* A made-up food manufacturer, part-way through the workshop, for testing every step and the local AI drafting */
+function foodsState(){
+  const s=blankState(); s.example=true;
+  s.customer={name:"Harbour Valley Foods",sector:"Food manufacturing",date:"2026-10-21",attendees:"Operations Director, Technical Manager, Head of Customer Service, Engineering Manager",goals:"Stop re-keying customer orders. Catch line breakdowns before they stop production. Get supplier food-safety checks out of inboxes and spreadsheets."};
+  s.answers={teams:["Operations & supply chain","Manufacturing & engineering","Customer service / contact centre","Legal & compliance"],pains:["Manual admin and re-keying","Problems spotted too late","Hand-offs between disconnected systems","Slow document review and drafting"],data:["ERP / finance system","Sensors, IoT, operational telemetry","Scanned forms and PDFs","SharePoint, OneDrive, Teams"]};
+  const keep=[1,3,7,8,9,10,12,13,17,18,21,23,25,28,31,32,38,40,49,53,69,77,78,80,86];
+  s.cut=CARDS.map(c=>c.id).filter(id=>!keep.includes(id));
+  s.processes=[
+   {id:"f1",name:"Supplier allergen and food-safety certificate checks",owner:"Technical Manager",team:"Technical and QA",volume:"120 supplier documents a month"},
+   {id:"f2",name:"Line breakdowns and maintenance reports",owner:"Engineering Manager",team:"Maintenance engineers across 3 sites",volume:"35 breakdowns a month"},
+   {id:"f3",name:"Customer order intake from emailed PDF purchase orders",owner:"Head of Customer Service",team:"Order desk (6 people)",volume:"1,500 orders a week"},
+   {id:"f4",name:"Weekly demand plan for retailers",owner:"Supply Chain Director",team:"Demand planning",volume:"400 product lines, every week"},
+   {id:"f5",name:"Quality incident and complaint write-ups",owner:"Quality Lead",team:"QA and site managers",volume:"25 incidents a month"}];
+  s.sort={1:"p",38:"p",13:"p",25:"p",3:"p",9:"p",10:"p",7:"p",78:"p",80:"p",18:"p",49:"p",23:"m",21:"m",53:"m",12:"m",86:"x",40:"x"};
+  [1,38,13,25].forEach(id=>s.where[id]={proc:"f3",detail:""});
+  [9,10].forEach(id=>s.where[id]={proc:"f1",detail:""});
+  [7,78,80,18].forEach(id=>s.where[id]={proc:"f2",detail:""});
+  [3,49].forEach(id=>s.where[id]={proc:"f5",detail:""});
+  s.stacks=[
+   Object.assign(blankStack(),{id:"fs1",name:"Order intake agent",proc:"f3",pattern:1,cards:[38,13,25],who:"Order desk advisers",trigger:"A purchase order arrives in the shared orders mailbox",knowledge:["Outlook / email","ERP / finance system","Scanned documents / PDFs"],dataClean:"Needs tidying",action:"Read the PDF order, match products and prices, and create a draft sales order in the ERP",hitl:"An adviser approves each draft order before it is released",measure:"Halve order entry time and keep re-keying errors under 1%",volume:"1,500 orders a week",risk:"Writes to the ERP; customer pricing is commercially sensitive",riskLevel:"Medium",value:5,feas:4,sponsor:"Head of Customer Service"}),
+   Object.assign(blankStack(),{id:"fs2",name:"Supplier certificate checker",proc:"f1",pattern:3,cards:[9,10],who:"Technical and QA team",trigger:"A supplier sends a new or renewed certificate",value:4,feas:3,sponsor:"Technical Manager"}),
+   Object.assign(blankStack(),{id:"fs3",name:"",proc:"f2",pattern:7,cards:[78,80,18]})];
+  s.pilot={stack:"fs1",measure:"Order entry time down 50% and re-keying errors under 1% within 10 weeks",owner:"Head of Customer Service",nextDate:"2026-11-04",nextStep:"Run 200 real purchase orders through a prototype with the order desk",funding:"None yet",fundingNote:""};
+  return s;
+}
+const EXAMPLES=[["council","Northwell Borough Council","Local government, workshop finished",exampleState],["foods","Harbour Valley Foods","Food manufacturing, part-way through: good for testing local AI",foodsState]];
+let swapTo="";
+function loadExample(k){const e=EXAMPLES.find(x=>x[0]===k);if(!e)return;S=e[3]();aiOut={discover:null,explain:{},email:""};swapTo="";deckFilter={cat:"All",q:"",only:"all"};famOpen=new Set(Object.keys(CAT));save();render();toast(`Loaded the test customer ${e[1]}`)}
 /* Fills gaps in a saved workshop, and turns the older one-card requirements into single-card solutions */
 function normalize(o){
   const b=blankState();
@@ -453,6 +481,11 @@ function vWorkshop(){
         ${open?`<div class="fam-stage"><button type="button" class="gal-arrow prev" data-famscroll="-1" aria-label="Previous cards">‹</button><div class="fam-track" data-track="${esc(cat)}">${cards.map(x=>`<div class="cut-tile"><button type="button" class="cut-img" data-cutcard="${x.id}" aria-pressed="${!cs.has(x.id)}" aria-label="Card ${x.id}: ${esc(x.title)}, in the deck" title="${esc(x.title)}"><img src="cards/${String(x.id).padStart(2,"0")}.jpg" alt="" loading="lazy" draggable="false"></button><span class="cut-box" aria-hidden="true"></span><button type="button" class="cut-zoom" data-zoom="${x.id}" aria-label="Enlarge card ${x.id}: ${esc(x.title)}" title="Enlarge">⤢</button></div>`).join("")}</div><button type="button" class="gal-arrow next" data-famscroll="1" aria-label="Next cards">›</button></div>`:""}</div>`}).join("")}</div>
   </div>
   <div class="row"><button class="btn primary" data-go="discover">Next: start with their pain</button><button class="btn ghost" data-go="sort">Skip to the card sort</button></div>
+  <div class="panel" style="display:grid;gap:10px"><span class="label">Test with a made-up customer</span>
+    <p class="muted" style="font-size:.88rem">Load a fictional workshop to try every step. It replaces the workshop saved in this browser${S.example?"":`, so copy the workshop file from Pilot first if you want to keep yours`}.</p>
+    ${swapTo?`<div class="row"><span>Replace ${esc(f(S.customer.name)||"your workshop")} with ${esc(EXAMPLES.find(x=>x[0]===swapTo)[1])}?</span><button class="btn sm primary" data-act="exYes">Yes, replace it</button><button class="btn sm ghost" data-act="exNo">Keep mine</button></div>`
+    :`<div class="row">${EXAMPLES.map(([k,n,d])=>`<button class="btn sm" data-ex="${k}" title="${esc(d)}">${esc(n)}</button>`).join("")}<span class="muted" style="font-size:.8rem">${EXAMPLES.map(([,n,d])=>`${esc(n)}: ${esc(d)}`).join(" · ")}</span></div>`}
+  </div>
   <div class="panel"><span class="label">How the session runs</span>
    <div class="grid2" style="margin-top:10px">
     <p><b>Discover.</b> Ten minutes before any card comes out. Write down 4–6 real processes, each with an owner.</p>
@@ -906,11 +939,17 @@ function setPilot(id){
   touched(); render();
 }
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-go],[data-act],[data-open],[data-ostack],[data-set],[data-restore],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-fam],[data-famopen],[data-cutcard],[data-delproc],[data-spat],[data-scard],[data-schip],[data-sone],[data-sscale],[data-pilot],[data-fund],[data-gal],[data-gi],[data-zoom],[data-famscroll],[data-aiact]");
+  const t=e.target.closest("[data-go],[data-act],[data-open],[data-ostack],[data-set],[data-restore],[data-q],[data-cat],[data-close],[data-nav],[data-sset],[data-fam],[data-famopen],[data-cutcard],[data-delproc],[data-spat],[data-scard],[data-schip],[data-sone],[data-sscale],[data-pilot],[data-fund],[data-gal],[data-gi],[data-zoom],[data-famscroll],[data-aiact],[data-ex]");
   if(!t) return;
   const d=t.dataset;
   if(d.go){go(d.go);return}
   if(d.aiact){aiAction(d.aiact);return}
+  if(d.ex){if(S.example)loadExample(d.ex);else{swapTo=d.ex;render()}return}
+  if(d.act==="testData"){closeSheet();
+    if(S.example){loadExample("foods");go("workshop");return}
+    swapTo="foods";go("workshop");const y=$('[data-act="exYes"]');if(y){y.scrollIntoView({block:"center"});y.focus()}return}
+  if(d.act==="exYes"){loadExample(swapTo);return}
+  if(d.act==="exNo"){swapTo="";render();return}
   if(d.act==="aiSettings"){openAISheet();return}
   if(d.act==="aiConnect"){aiConnect();return}
   if(d.act==="aiOff"){AI.on=false;saveAI();aiState="off";aiMsg="";refreshUI();return}
